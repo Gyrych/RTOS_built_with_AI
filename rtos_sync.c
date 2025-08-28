@@ -12,6 +12,11 @@ extern rtos_semaphore_t rtos_semaphores[RTOS_MAX_SEMAPHORES];
 extern rtos_mutex_t rtos_mutexes[RTOS_MAX_MUTEXES];
 extern rtos_queue_t rtos_queues[RTOS_MAX_QUEUES];
 
+/* 外部函数声明 */
+extern void rtos_add_task_to_ready_list(rtos_task_t *task);
+extern void rtos_remove_task_from_ready_list(rtos_task_t *task);
+extern rtos_task_t *rtos_get_next_task_from_wait_list(rtos_task_t **wait_list);
+
 /* 内部函数声明 */
 static void rtos_block_task_with_timeout(rtos_task_t *task, rtos_task_t **wait_list, uint32_t timeout_us);
 static rtos_result_t rtos_wait_with_timeout(rtos_task_t **wait_list, uint32_t timeout_us);

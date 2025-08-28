@@ -18,15 +18,41 @@
 /* Cortex-M4 PSR寄存器位定义 */
 #define PSR_THUMB_BIT           0x01000000  /* Thumb状态位 */
 
+/* 前置声明 */
+#ifndef RTOS_TYPES_DEFINED
+#define RTOS_TYPES_DEFINED
+typedef uint64_t rtos_time_ns_t;
+typedef enum {
+    RTOS_SLEEP_NONE = 0,
+    RTOS_SLEEP_LIGHT,
+    RTOS_SLEEP_DEEP,
+    RTOS_SLEEP_STANDBY
+} rtos_sleep_mode_t;
+#endif
+
 /* 硬件相关函数声明 */
 void rtos_hw_init(void);
 void rtos_hw_timer_init(void);
 void rtos_hw_timer_set(uint32_t microseconds);
+void rtos_hw_timer_set_ns(rtos_time_ns_t nanoseconds);
 void rtos_hw_timer_stop(void);
 uint32_t rtos_hw_get_time_us(void);
+rtos_time_ns_t rtos_hw_get_time_ns(void);
 void rtos_hw_disable_interrupts(void);
 void rtos_hw_enable_interrupts(void);
 void rtos_hw_start_first_task(void);
+
+/* 功耗管理函数 */
+void rtos_hw_enter_sleep(rtos_sleep_mode_t mode);
+void rtos_hw_configure_wakeup(uint32_t sources);
+void rtos_hw_set_cpu_frequency(uint32_t frequency_hz);
+
+/* MPU相关函数 */
+void rtos_hw_mpu_init(void);
+void rtos_hw_mpu_configure_region(uint8_t region_id, uint32_t base_addr, 
+                                 uint32_t size, uint32_t permissions);
+void rtos_hw_mpu_enable(void);
+void rtos_hw_mpu_disable(void);
 
 /* 上下文切换相关 */
 void rtos_context_switch(void);

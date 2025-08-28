@@ -31,7 +31,8 @@ C_SOURCES = \
 	main.c \
 	rtos_kernel.c \
 	rtos_sync.c \
-	rtos_hw.c
+	rtos_hw.c \
+	rtos_advanced.c
 
 ASM_SOURCES = \
 	rtos_asm.s \
@@ -100,4 +101,5 @@ main.o: main.c rtos_kernel.h
 rtos_kernel.o: rtos_kernel.c rtos_kernel.h rtos_hw.h
 rtos_sync.o: rtos_sync.c rtos_kernel.h
 rtos_hw.o: rtos_hw.c rtos_hw.h rtos_kernel.h
+rtos_advanced.o: rtos_advanced.c rtos_kernel.h rtos_hw.h
 rtos_asm.o: rtos_asm.s

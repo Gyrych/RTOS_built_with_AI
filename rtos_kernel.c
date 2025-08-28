@@ -14,6 +14,14 @@ static rtos_semaphore_t rtos_semaphores[RTOS_MAX_SEMAPHORES];
 static rtos_mutex_t rtos_mutexes[RTOS_MAX_MUTEXES];
 static rtos_queue_t rtos_queues[RTOS_MAX_QUEUES];
 static rtos_timer_t rtos_timers[RTOS_MAX_TASKS]; /* 每个任务一个定时器 */
+static rtos_sw_timer_t rtos_sw_timers[RTOS_MAX_SW_TIMERS]; /* 软件定时器 */
+static rtos_event_group_t rtos_event_groups[RTOS_MAX_EVENT_GROUPS]; /* 事件组 */
+static rtos_memory_pool_t rtos_memory_pools[RTOS_MAX_MEMORY_POOLS]; /* 内存池 */
+
+/* 跟踪相关变量 */
+static rtos_trace_record_t *trace_buffer = NULL;
+static uint32_t trace_buffer_size = 0;
+static volatile uint32_t trace_index = 0;
 
 /* 内部函数声明 */
 static void rtos_add_task_to_ready_list(rtos_task_t *task);
@@ -38,10 +46,18 @@ rtos_result_t rtos_init(void)
     memset(rtos_mutexes, 0, sizeof(rtos_mutexes));
     memset(rtos_queues, 0, sizeof(rtos_queues));
     memset(rtos_timers, 0, sizeof(rtos_timers));
+    memset(rtos_sw_timers, 0, sizeof(rtos_sw_timers));
+    memset(rtos_event_groups, 0, sizeof(rtos_event_groups));
+    memset(rtos_memory_pools, 0, sizeof(rtos_memory_pools));
+    
+    /* 初始化系统控制块 */
+    rtos_system.sleep_mode = RTOS_SLEEP_NONE;
+    rtos_system.trace_enabled = false;
     
     /* 初始化硬件 */
     rtos_hw_init();
     rtos_hw_timer_init();
+    rtos_hw_mpu_init();
     
     return RTOS_OK;
 }
@@ -92,11 +108,21 @@ rtos_result_t rtos_task_create(rtos_task_t *task,
     task->stack_base = stack;
     task->stack_size = stack_size;
     task->priority = priority;
+    task->original_priority = priority;
     task->state = TASK_STATE_READY;
-    task->delay_ticks = 0;
+    task->delay_time_ns = 0;
     task->next = NULL;
     task->task_func = task_func;
     task->param = param;
+    
+    /* 初始化调试和安全信息 */
+    task->task_switch_count = 0;
+    task->stack_high_water = 0;
+    task->runtime_us = 0;
+    task->stack_check_enabled = false;
+    task->stack_canary = 0xDEADBEEF;
+    task->mpu_region_count = 0;
+    memset(task->mpu_regions, 0, sizeof(task->mpu_regions));
     
     /* 复制任务名称 */
     if (name) {
@@ -185,7 +211,7 @@ rtos_result_t rtos_delay_us(uint32_t microseconds)
     rtos_task_t *current_task = rtos_system.current_task;
     
     /* 设置延时时间 */
-    current_task->delay_ticks = microseconds;
+    current_task->delay_time_ns = (rtos_time_ns_t)microseconds * 1000;
     current_task->state = TASK_STATE_BLOCKED;
     
     /* 从就绪队列移除 */
@@ -194,7 +220,7 @@ rtos_result_t rtos_delay_us(uint32_t microseconds)
     /* 创建定时器 */
     for (int i = 0; i < RTOS_MAX_TASKS; i++) {
         if (!rtos_timers[i].is_active) {
-            rtos_timers[i].expire_time = rtos_hw_get_time_us() + microseconds;
+            rtos_timers[i].expire_time_ns = rtos_hw_get_time_ns() + ((rtos_time_ns_t)microseconds * 1000);
             rtos_timers[i].task = current_task;
             rtos_timers[i].is_active = true;
             rtos_timer_add(&rtos_timers[i]);
@@ -204,12 +230,12 @@ rtos_result_t rtos_delay_us(uint32_t microseconds)
     
     /* 设置硬件定时器 */
     if (rtos_system.timer_list) {
-        uint32_t current_time = rtos_hw_get_time_us();
-        uint32_t next_expire = rtos_system.timer_list->expire_time;
+        rtos_time_ns_t current_time = rtos_hw_get_time_ns();
+        rtos_time_ns_t next_expire = rtos_system.timer_list->expire_time_ns;
         if (next_expire > current_time) {
-            rtos_hw_timer_set(next_expire - current_time);
+            rtos_hw_timer_set_ns(next_expire - current_time);
         } else {
-            rtos_hw_timer_set(1); /* 立即触发 */
+            rtos_hw_timer_set_ns(1000); /* 立即触发(1微秒) */
         }
     }
     
@@ -227,6 +253,82 @@ rtos_result_t rtos_delay_us(uint32_t microseconds)
 rtos_result_t rtos_delay_ms(uint32_t milliseconds)
 {
     return rtos_delay_us(milliseconds * 1000);
+}
+
+/**
+ * @brief 纳秒级延时
+ */
+rtos_result_t rtos_delay_ns(rtos_time_ns_t nanoseconds)
+{
+    if (nanoseconds == 0) {
+        return RTOS_OK;
+    }
+    
+    if (!rtos_system.scheduler_running) {
+        return RTOS_ERROR;
+    }
+    
+    rtos_enter_critical();
+    
+    rtos_task_t *current_task = rtos_system.current_task;
+    
+    /* 设置延时时间 */
+    current_task->delay_time_ns = nanoseconds;
+    current_task->state = TASK_STATE_BLOCKED;
+    
+    /* 从就绪队列移除 */
+    rtos_remove_task_from_ready_list(current_task);
+    
+    /* 创建定时器 */
+    for (int i = 0; i < RTOS_MAX_TASKS; i++) {
+        if (!rtos_timers[i].is_active) {
+            rtos_timers[i].expire_time_ns = rtos_hw_get_time_ns() + nanoseconds;
+            rtos_timers[i].task = current_task;
+            rtos_timers[i].is_active = true;
+            rtos_timer_add(&rtos_timers[i]);
+            break;
+        }
+    }
+    
+    /* 设置硬件定时器 */
+    if (rtos_system.timer_list) {
+        rtos_time_ns_t current_time = rtos_hw_get_time_ns();
+        rtos_time_ns_t next_expire = rtos_system.timer_list->expire_time_ns;
+        if (next_expire > current_time) {
+            rtos_hw_timer_set_ns(next_expire - current_time);
+        } else {
+            rtos_hw_timer_set_ns(1000); /* 立即触发(1微秒) */
+        }
+    }
+    
+    rtos_exit_critical();
+    
+    /* 触发任务调度 */
+    rtos_schedule();
+    
+    return RTOS_OK;
+}
+
+/**
+ * @brief 灵活延时(支持不同时间单位)
+ */
+rtos_result_t rtos_delay_ticks(uint64_t ticks, rtos_time_unit_t unit)
+{
+    rtos_time_ns_t nanoseconds = ticks * unit;
+    return rtos_delay_ns(nanoseconds);
+}
+
+/**
+ * @brief 延时到绝对时间
+ */
+rtos_result_t rtos_delay_until(rtos_time_ns_t absolute_time_ns)
+{
+    rtos_time_ns_t current_time = rtos_hw_get_time_ns();
+    if (absolute_time_ns <= current_time) {
+        return RTOS_OK; /* 时间已过 */
+    }
+    
+    return rtos_delay_ns(absolute_time_ns - current_time);
 }
 
 /**
@@ -265,6 +367,14 @@ uint32_t rtos_get_time_us(void)
 uint32_t rtos_get_time_ms(void)
 {
     return rtos_hw_get_time_us() / 1000;
+}
+
+/**
+ * @brief 获取系统时间(纳秒)
+ */
+rtos_time_ns_t rtos_get_time_ns(void)
+{
+    return rtos_hw_get_time_ns();
 }
 
 /**
@@ -309,12 +419,12 @@ void rtos_timer_isr(void)
     
     /* 设置下一个定时器 */
     if (rtos_system.timer_list) {
-        uint32_t current_time = rtos_hw_get_time_us();
-        uint32_t next_expire = rtos_system.timer_list->expire_time;
+        rtos_time_ns_t current_time = rtos_hw_get_time_ns();
+        rtos_time_ns_t next_expire = rtos_system.timer_list->expire_time_ns;
         if (next_expire > current_time) {
-            rtos_hw_timer_set(next_expire - current_time);
+            rtos_hw_timer_set_ns(next_expire - current_time);
         } else {
-            rtos_hw_timer_set(1);
+            rtos_hw_timer_set_ns(1000); /* 1微秒 */
         }
     } else {
         rtos_hw_timer_stop();
@@ -398,13 +508,13 @@ static void rtos_timer_add(rtos_timer_t *timer)
         timer->next = NULL;
     } else {
         /* 按到期时间排序插入 */
-        if (timer->expire_time < rtos_system.timer_list->expire_time) {
+        if (timer->expire_time_ns < rtos_system.timer_list->expire_time_ns) {
             timer->next = rtos_system.timer_list;
             rtos_system.timer_list = timer;
         } else {
             rtos_timer_t *current = rtos_system.timer_list;
             while (current->next != NULL && 
-                   current->next->expire_time <= timer->expire_time) {
+                   current->next->expire_time_ns <= timer->expire_time_ns) {
                 current = current->next;
             }
             timer->next = current->next;
@@ -436,10 +546,10 @@ static void rtos_timer_remove(rtos_timer_t *timer)
  */
 static void rtos_timer_update(void)
 {
-    uint32_t current_time = rtos_hw_get_time_us();
+    rtos_time_ns_t current_time = rtos_hw_get_time_ns();
     rtos_timer_t *timer = rtos_system.timer_list;
     
-    while (timer != NULL && timer->expire_time <= current_time) {
+    while (timer != NULL && timer->expire_time_ns <= current_time) {
         rtos_timer_t *expired_timer = timer;
         timer = timer->next;
         
@@ -449,7 +559,7 @@ static void rtos_timer_update(void)
         /* 恢复关联任务 */
         if (expired_timer->task) {
             expired_timer->task->state = TASK_STATE_READY;
-            expired_timer->task->delay_ticks = 0;
+            expired_timer->task->delay_time_ns = 0;
             rtos_add_task_to_ready_list(expired_timer->task);
         }
     }
