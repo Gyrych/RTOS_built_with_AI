@@ -18,6 +18,24 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* 前向声明 */
+struct rtos_task;
+
+#ifndef RTOS_RESULT_T_DEFINED
+#define RTOS_RESULT_T_DEFINED
+typedef enum {
+    RTOS_OK = 0,
+    RTOS_ERROR,
+    RTOS_ERROR_TIMEOUT,
+    RTOS_ERROR_NO_MEMORY,
+    RTOS_ERROR_INVALID_PARAM,
+    RTOS_ERROR_RESOURCE_BUSY,
+    RTOS_ERROR_DEADLOCK,
+    RTOS_ERROR_STACK_OVERFLOW,
+    RTOS_ERROR_MEMORY_CORRUPTION
+} rtos_result_t;
+#endif
+
 /* 内核对象类型定义 */
 typedef enum {
     RTOS_OBJECT_CLASS_NULL = 0,          /* 空对象 */

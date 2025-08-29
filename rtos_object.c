@@ -3,9 +3,15 @@
  * @brief RTOS内核对象管理器实现
  */
 
-#include "rtos_object.h"
 #include "rtos_kernel.h"
+#include "rtos_object.h"
 #include <string.h>
+
+/* 外部函数声明 */
+extern void rtos_add_task_to_ready_list(rtos_task_t *task);
+extern void rtos_remove_task_from_ready_list(rtos_task_t *task);
+extern void *rtos_malloc(uint32_t size);
+extern void rtos_free(void *ptr);
 
 /* 对象容器数组 */
 static rtos_object_information_t rtos_object_container[RTOS_OBJECT_CLASS_UNKNOWN];
@@ -306,7 +312,7 @@ void rtos_ipc_object_init(rtos_ipc_object_t       *ipc,
  */
 rtos_result_t rtos_ipc_object_suspend_thread(rtos_ipc_object_t *ipc,
                                              struct rtos_task  *thread,
-                                             uint8_t           flag,
+                                             uint8_t           flag __attribute__((unused)),
                                              int32_t           timeout)
 {
     if (!ipc || !thread) {

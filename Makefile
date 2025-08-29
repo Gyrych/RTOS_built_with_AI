@@ -35,6 +35,9 @@ C_SOURCES = \
 	rtos_semaphore.c \
 	rtos_mutex.c \
 	rtos_queue.c \
+	rtos_kernel.c \
+	rtos_sync.c \
+	rtos_advanced.c \
 	rtos_hw.c
 
 ASM_SOURCES = \

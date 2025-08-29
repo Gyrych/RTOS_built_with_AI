@@ -45,6 +45,8 @@ typedef enum {
 } rtos_task_state_t;
 
 /* 错误代码定义 */
+#ifndef RTOS_RESULT_T_DEFINED
+#define RTOS_RESULT_T_DEFINED
 typedef enum {
     RTOS_OK = 0,
     RTOS_ERROR,
@@ -56,6 +58,7 @@ typedef enum {
     RTOS_ERROR_STACK_OVERFLOW,
     RTOS_ERROR_MEMORY_CORRUPTION
 } rtos_result_t;
+#endif
 
 /* 时间单位定义 */
 typedef uint32_t rtos_time_unit_t;

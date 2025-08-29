@@ -6,6 +6,7 @@
 #include "rtos.h"
 #include "rtos_hw.h"
 #include <string.h>
+#include <stdio.h>
 
 /* 系统状态 */
 static bool system_initialized = false;

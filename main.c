@@ -81,14 +81,14 @@ int main(void)
 /**
  * @brief LED任务 - 演示信号量使用
  */
-void led_task(void *param)
+void led_task(void *param __attribute__((unused)))
 {
     static uint32_t led_count = 0;
     
     while(1) {
         /* 获取LED信号量 */
         if (rtos_sem_take(&led_semaphore, 1000000000ULL) == RTOS_OK) { /* 1秒超时 */
-            printf("[%u] LED任务: LED闪烁 #%u\n", rtos_system_get_time_ms(), led_count++);
+            printf("[%lu] LED任务: LED闪烁 #%lu\n", (unsigned long)rtos_system_get_time_ms(), (unsigned long)led_count++);
             
             /* 模拟LED操作耗时 */
             rtos_system_delay_us(100000); /* 100ms */
@@ -105,52 +105,52 @@ void led_task(void *param)
 /**
  * @brief 传感器任务 - 演示消息队列发送
  */
-void sensor_task(void *param)
+void sensor_task(void *param __attribute__((unused)))
 {
     static uint32_t sensor_data = 1000;
     
     while(1) {
         /* 模拟传感器读取 */
-        sensor_data += (rtos_get_time_ms() % 100) - 50; /* 随机变化 */
+        sensor_data += (rtos_system_get_time_ms() % 100) - 50; /* 随机变化 */
         
         /* 发送数据到队列 */
-        if (rtos_queue_send(&data_queue, &sensor_data, 500000) == RTOS_OK) { /* 500ms超时 */
-            printf("[%u] 传感器任务: 发送数据 %u\n", rtos_get_time_ms(), sensor_data);
+        if (rtos_mq_send(&data_queue, &sensor_data, sizeof(sensor_data), 500000000ULL) == RTOS_OK) { /* 500ms超时 */
+            printf("[%lu] 传感器任务: 发送数据 %lu\n", (unsigned long)rtos_system_get_time_ms(), (unsigned long)sensor_data);
         } else {
-            printf("[%u] 传感器任务: 队列满，数据丢失\n", rtos_get_time_ms());
+            printf("[%lu] 传感器任务: 队列满，数据丢失\n", (unsigned long)rtos_system_get_time_ms());
         }
         
         /* 任务周期延时 */
-        rtos_delay_ms(300);
+        rtos_task_mdelay(300);
     }
 }
 
 /**
  * @brief 通信任务 - 演示互斥量和消息队列接收
  */
-void communication_task(void *param)
+void communication_task(void *param __attribute__((unused)))
 {
     uint32_t received_data;
     
     while(1) {
         /* 从队列接收数据 */
-        if (rtos_queue_receive(&data_queue, &received_data, 2000000) == RTOS_OK) { /* 2秒超时 */
+        if (rtos_mq_recv(&data_queue, &received_data, sizeof(received_data), 2000000000ULL) >= 0) { /* 2秒超时 */
             /* 获取UART互斥量 */
-            if (rtos_mutex_lock(&uart_mutex, 1000000) == RTOS_OK) { /* 1秒超时 */
-                printf("[%u] 通信任务: 处理数据 %u\n", rtos_get_time_ms(), received_data);
+            if (rtos_mutex_take(&uart_mutex, 1000000000ULL) == RTOS_OK) { /* 1秒超时 */
+                printf("[%lu] 通信任务: 处理数据 %lu\n", (unsigned long)rtos_system_get_time_ms(), (unsigned long)received_data);
                 
                 /* 模拟数据处理和发送 */
-                rtos_delay_us(50000); /* 50ms */
+                rtos_system_delay_us(50000); /* 50ms */
                 
-                printf("[%u] 通信任务: 数据 %u 发送完成\n", rtos_get_time_ms(), received_data);
+                printf("[%lu] 通信任务: 数据 %lu 发送完成\n", (unsigned long)rtos_system_get_time_ms(), (unsigned long)received_data);
                 
                 /* 释放互斥量 */
-                rtos_mutex_unlock(&uart_mutex);
+                rtos_mutex_release(&uart_mutex);
             } else {
-                printf("[%u] 通信任务: 获取UART互斥量超时\n", rtos_get_time_ms());
+                printf("[%lu] 通信任务: 获取UART互斥量超时\n", (unsigned long)rtos_system_get_time_ms());
             }
         } else {
-            printf("[%u] 通信任务: 等待数据超时\n", rtos_get_time_ms());
+            printf("[%lu] 通信任务: 等待数据超时\n", (unsigned long)rtos_system_get_time_ms());
         }
         
         /* 任务让出CPU */

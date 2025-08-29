@@ -1,0 +1,76 @@
+# 简化的Makefile用于测试编译
+CC = arm-none-eabi-gcc
+OBJCOPY = arm-none-eabi-objcopy
+SIZE = arm-none-eabi-size
+
+# 目标芯片
+MCU = cortex-m4
+
+# 编译标志
+CFLAGS = -mcpu=$(MCU) -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
+CFLAGS += -Wall -Wextra -O2 -g
+CFLAGS += -DSTM32F407xx -DUSE_HAL_DRIVER
+CFLAGS += -ffunction-sections -fdata-sections
+
+# 链接标志
+LDFLAGS = -mcpu=$(MCU) -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
+LDFLAGS += -Wl,--gc-sections -Wl,-Map=output_simple.map
+LDFLAGS += -T STM32F407VGTx_FLASH.ld
+
+# 包含路径
+INCLUDES = -I.
+
+# 源文件
+C_SOURCES = \
+	main_simple.c \
+	rtos_simple.c \
+	system_support.c
+
+ASM_SOURCES = \
+	startup_stm32f407xx.s
+
+# 目标文件
+OBJECTS = $(C_SOURCES:.c=.o) $(ASM_SOURCES:.s=.o)
+
+# 目标名称
+TARGET = rtos_simple
+
+# 默认目标
+all: $(TARGET).elf $(TARGET).hex $(TARGET).bin size
+
+# ELF文件生成
+$(TARGET).elf: $(OBJECTS)
+	@echo "链接 $@"
+	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+
+# HEX文件生成
+$(TARGET).hex: $(TARGET).elf
+	@echo "生成 $@"
+	$(OBJCOPY) -O ihex $< $@
+
+# BIN文件生成
+$(TARGET).bin: $(TARGET).elf
+	@echo "生成 $@"
+	$(OBJCOPY) -O binary $< $@
+
+# C文件编译
+%.o: %.c
+	@echo "编译 $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# 汇编文件编译
+%.o: %.s
+	@echo "汇编 $<"
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# 显示大小信息
+size: $(TARGET).elf
+	@echo "程序大小信息:"
+	$(SIZE) $<
+
+# 清理
+clean:
+	@echo "清理中..."
+	rm -f $(OBJECTS) $(TARGET).elf $(TARGET).hex $(TARGET).bin output_simple.map
+
+.PHONY: all clean size
