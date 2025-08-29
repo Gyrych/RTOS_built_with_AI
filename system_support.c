@@ -1,13 +1,17 @@
 /**
  * @file system_support.c
- * @brief 系统支持函数 - 提供newlib所需的系统调用
+ * @brief 系统支持函数 - 提供系统调用和硬件抽象
  * @author Assistant
  * @date 2024
  */
 
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <stdint.h>
+#include <stddef.h>
 #include <errno.h>
+#include <sys/stat.h>
+
+/* 在测试编译时避免系统调用冲突 */
+#ifndef __TEST_COMPILE__
 
 /* 全局变量 */
 extern char _end;  /* 由链接器定义 */
@@ -237,3 +241,5 @@ void DCMI_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void CRYP_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void HASH_RNG_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void FPU_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
+
+#endif /* __TEST_COMPILE__ */

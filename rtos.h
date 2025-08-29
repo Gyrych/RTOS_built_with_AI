@@ -1,218 +1,255 @@
 /**
  * @file rtos.h
- * @brief RTOS主头文件 - 模块化内核对象系统
+ * @brief RTOS主头文件 - 重构后的统一接口
  * @author Assistant
  * @date 2024
- * 
- * 基于RT-Thread内核对象概念设计的模块化RTOS系统
- * 特点：
- * 1. 统一的内核对象基类和继承体系
- * 2. 模块化设计，高内聚低耦合
- * 3. 支持静态和动态对象管理
- * 4. 完善的对象容器和链表管理
- * 5. 支持对象查找、遍历和信息获取
  */
 
 #ifndef __RTOS_H__
 #define __RTOS_H__
 
-/* 系统配置 */
-#include "rtos_config.h"
+/* 包含核心类型定义 */
+#include "rtos/core/types.h"
 
-/* 基础类型和错误码 */
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
+/* 包含核心对象系统 */
+#include "rtos/core/object.h"
 
-/* 错误代码定义 */
-typedef enum {
-    RTOS_OK = 0,
-    RTOS_ERROR,
-    RTOS_ERROR_TIMEOUT,
-    RTOS_ERROR_NO_MEMORY,
-    RTOS_ERROR_INVALID_PARAM,
-    RTOS_ERROR_RESOURCE_BUSY,
-    RTOS_ERROR_DEADLOCK,
-    RTOS_ERROR_STACK_OVERFLOW,
-    RTOS_ERROR_MEMORY_CORRUPTION
-} rtos_result_t;
+/* 包含任务管理模块 */
+#include "rtos/task/task.h"
 
-/* 时间类型定义 */
-typedef uint64_t rtos_time_ns_t;
+/* 包含同步机制模块 */
+#include "rtos/sync/semaphore.h"
+#include "rtos/sync/mutex.h"
+#include "rtos/sync/queue.h"
 
-/* 内存管理函数声明 */
-void *rtos_malloc(uint32_t size);
-void rtos_free(void *ptr);
+/* 包含事件组模块(框架) */
+#include "rtos/sync/event.h"
 
-/* 临界区管理 */
-void rtos_enter_critical(void);
-void rtos_exit_critical(void);
+/* 包含定时器模块(框架) */
+#include "rtos/time/timer.h"
 
-/* 内核对象系统 */
-#include "rtos_object.h"
+/* 包含内存池模块(框架) */
+#include "rtos/memory/mempool.h"
 
-/* 任务管理 */
-#include "rtos_task.h"
+/* 包含硬件抽象层 */
+#include "rtos/hw/hw_abstraction.h"
 
-/* IPC机制 */
-#include "rtos_semaphore.h"
-#include "rtos_mutex.h"
-#include "rtos_queue.h"
-#include "rtos_event.h"
-
-/* 定时器 */
-#include "rtos_timer.h"
-
-/* 内存池 */
-#include "rtos_mempool.h"
-
-/* 硬件抽象层 */
-#include "rtos_hw.h"
-
-/* 系统初始化和控制 */
+/* 系统核心函数声明 */
 
 /**
  * @brief 初始化RTOS系统
- * @return 结果码
+ * @return 操作结果
  */
 rtos_result_t rtos_system_init(void);
 
 /**
- * @brief 启动RTOS调度器
- * @return 结果码
+ * @brief 启动RTOS系统
+ * @return 操作结果
  */
 rtos_result_t rtos_system_start(void);
 
 /**
- * @brief 获取系统运行时间(纳秒)
- * @return 系统运行时间
+ * @brief 停止RTOS系统
+ * @return 操作结果
  */
-rtos_time_ns_t rtos_system_get_time_ns(void);
+rtos_result_t rtos_system_stop(void);
 
 /**
- * @brief 获取系统运行时间(微秒)
- * @return 系统运行时间
+ * @brief 关闭RTOS系统
+ * @return 操作结果
  */
-uint32_t rtos_system_get_time_us(void);
+rtos_result_t rtos_system_shutdown(void);
 
 /**
- * @brief 获取系统运行时间(毫秒)
- * @return 系统运行时间
+ * @brief 获取系统状态
+ * @return 系统状态
  */
-uint32_t rtos_system_get_time_ms(void);
+rtos_system_state_t rtos_system_get_state(void);
 
 /**
- * @brief 系统延时(纳秒)
- * @param ns 延时时间(纳秒)
- * @return 结果码
- */
-rtos_result_t rtos_system_delay_ns(rtos_time_ns_t ns);
-
-/**
- * @brief 系统延时(微秒)
- * @param us 延时时间(微秒)
- * @return 结果码
- */
-rtos_result_t rtos_system_delay_us(uint32_t us);
-
-/**
- * @brief 系统延时(毫秒)
- * @param ms 延时时间(毫秒)
- * @return 结果码
- */
-rtos_result_t rtos_system_delay_ms(uint32_t ms);
-
-/* 系统状态查询 */
-
-/**
- * @brief 检查调度器是否运行
+ * @brief 检查系统是否运行
  * @return 是否运行
  */
-bool rtos_system_scheduler_is_running(void);
+bool rtos_system_is_running(void);
 
 /**
- * @brief 获取系统对象统计信息
- * @param type 对象类型
- * @return 对象信息指针
+ * @brief 获取系统统计信息
+ * @param stats 统计信息结构体指针
+ * @return 操作结果
  */
-rtos_object_information_t *rtos_system_get_object_info(rtos_object_class_type_t type);
+rtos_result_t rtos_system_get_stats(rtos_system_stats_t *stats);
 
 /**
- * @brief 打印系统状态信息
+ * @brief 获取内存统计信息
+ * @param stats 内存统计信息结构体指针
+ * @return 操作结果
  */
-void rtos_system_print_status(void);
+rtos_result_t rtos_system_get_memory_stats(rtos_memory_stats_t *stats);
 
 /**
- * @brief 打印所有对象信息
+ * @brief 重置系统统计信息
+ * @return 操作结果
  */
-void rtos_system_print_objects(void);
-
-/* 系统钩子函数 */
-typedef void (*rtos_idle_hook_t)(void);
-typedef void (*rtos_scheduler_hook_t)(rtos_task_t *from, rtos_task_t *to);
+rtos_result_t rtos_system_reset_stats(void);
 
 /**
- * @brief 设置空闲钩子函数
+ * @brief 设置系统启动钩子函数
  * @param hook 钩子函数
  */
-void rtos_system_set_idle_hook(rtos_idle_hook_t hook);
+void rtos_system_set_startup_hook(void (*hook)(void));
 
 /**
- * @brief 设置调度器钩子函数
+ * @brief 设置系统关闭钩子函数
  * @param hook 钩子函数
  */
-void rtos_system_set_scheduler_hook(rtos_scheduler_hook_t hook);
-
-/* 版本信息 */
-#define RTOS_VERSION_MAJOR      2
-#define RTOS_VERSION_MINOR      0
-#define RTOS_VERSION_PATCH      0
-
-#define RTOS_VERSION_STRING     "RTOS v2.0.0 - Object-Oriented Kernel"
+void rtos_system_set_shutdown_hook(void (*hook)(void));
 
 /**
- * @brief 获取版本信息
+ * @brief 设置系统空闲钩子函数
+ * @param hook 钩子函数
+ */
+void rtos_system_set_idle_hook(void (*hook)(void));
+
+/**
+ * @brief 删除系统启动钩子函数
+ * @param hook 钩子函数
+ */
+void rtos_system_delete_startup_hook(void (*hook)(void));
+
+/**
+ * @brief 删除系统关闭钩子函数
+ * @param hook 钩子函数
+ */
+void rtos_system_delete_shutdown_hook(void (*hook)(void));
+
+/**
+ * @brief 删除系统空闲钩子函数
+ * @param hook 钩子函数
+ */
+void rtos_system_delete_idle_hook(void (*hook)(void));
+
+/**
+ * @brief 获取系统版本信息
  * @return 版本字符串
  */
 const char *rtos_system_get_version(void);
 
-/* 调试和诊断 */
-#ifdef RTOS_DEBUG
-#define RTOS_ASSERT(expr) \
-    do { \
-        if (!(expr)) { \
-            rtos_system_assert_failed(__FILE__, __LINE__, #expr); \
-        } \
-    } while (0)
+/**
+ * @brief 获取系统版本号
+ * @param major 主版本号指针
+ * @param minor 次版本号指针
+ * @param patch 修订版本号指针
+ */
+void rtos_system_get_version_numbers(uint8_t *major, uint8_t *minor, uint8_t *patch);
 
 /**
- * @brief 断言失败处理
- * @param file 文件名
- * @param line 行号
- * @param expr 表达式
+ * @brief 系统延时(毫秒)
+ * @param ms 毫秒数
+ * @return 操作结果
  */
-void rtos_system_assert_failed(const char *file, int line, const char *expr);
-#else
-#define RTOS_ASSERT(expr)
-#endif
+rtos_result_t rtos_system_delay_ms(uint32_t ms);
 
-/* 内存对齐宏 */
-#define RTOS_ALIGN(size, align)     (((size) + (align) - 1) & ~((align) - 1))
-#define RTOS_ALIGN_SIZE             4
+/**
+ * @brief 系统延时(微秒)
+ * @param us 微秒数
+ * @return 操作结果
+ */
+rtos_result_t rtos_system_delay_us(uint32_t us);
 
-/* 容器操作宏 */
-#define rtos_container_of(ptr, type, member) \
-    ((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
+/**
+ * @brief 系统延时(纳秒)
+ * @param ns 纳秒数
+ * @return 操作结果
+ */
+rtos_result_t rtos_system_delay_ns(rtos_time_ns_t ns);
 
-#define rtos_offsetof(type, member) \
-    ((unsigned long)(&((type *)0)->member))
+/**
+ * @brief 进入临界区
+ * @return 临界区状态
+ */
+rtos_critical_t rtos_system_enter_critical(void);
 
-/* 链表操作宏 */
-#define rtos_list_for_each(pos, head) \
-    for (pos = (head)->next; pos != (head); pos = pos->next)
+/**
+ * @brief 退出临界区
+ * @param critical 临界区状态
+ */
+void rtos_system_exit_critical(rtos_critical_t critical);
 
-#define rtos_list_for_each_safe(pos, n, head) \
-    for (pos = (head)->next, n = pos->next; pos != (head); \
-         pos = n, n = pos->next)
+/**
+ * @brief 系统空闲处理
+ */
+void rtos_system_idle(void);
+
+/* 对象清理回调函数声明 */
+
+/**
+ * @brief 清理任务对象回调
+ * @param object 对象指针
+ * @param arg 参数
+ */
+void rtos_system_cleanup_task_callback(rtos_object_t *object, void *arg);
+
+/**
+ * @brief 清理信号量对象回调
+ * @param object 对象指针
+ * @param arg 参数
+ */
+void rtos_system_cleanup_semaphore_callback(rtos_object_t *object, void *arg);
+
+/**
+ * @brief 清理互斥量对象回调
+ * @param object 对象指针
+ * @param arg 参数
+ */
+void rtos_system_cleanup_mutex_callback(rtos_object_t *object, void *arg);
+
+/**
+ * @brief 清理队列对象回调
+ * @param object 对象指针
+ * @param arg 参数
+ */
+void rtos_system_cleanup_queue_callback(rtos_object_t *object, void *arg);
+
+/* 兼容性宏定义 - 保持与现有代码的兼容性 */
+
+/* 任务管理兼容性 */
+#define rtos_task_init rtos_task_create_static
+#define rtos_task_startup rtos_task_start
+#define rtos_task_mdelay rtos_task_delay_ms
+#define rtos_task_udelay rtos_task_delay_us
+#define rtos_task_delay rtos_task_delay_ns
+
+/* 信号量兼容性 */
+#define rtos_sem_init rtos_semaphore_init
+#define rtos_sem_take rtos_semaphore_take
+#define rtos_sem_release rtos_semaphore_give
+
+/* 互斥量兼容性 */
+#define rtos_mutex_lock rtos_mutex_take
+#define rtos_mutex_unlock rtos_mutex_release
+
+/* 消息队列兼容性 */
+#define rtos_messagequeue_t rtos_queue_t
+#define rtos_mq_init rtos_queue_init
+#define rtos_mq_send rtos_queue_send
+#define rtos_mq_recv rtos_queue_receive
+
+/* 系统兼容性 */
+#define rtos_delay_ms rtos_system_delay_ms
+#define rtos_delay_us rtos_system_delay_us
+#define rtos_delay_ns rtos_system_delay_ns
+
+/* 对象类型兼容性 */
+#define rtos_object_class_type_t rtos_object_type_t
+#define RTOS_OBJECT_CLASS_NULL RTOS_OBJECT_TYPE_NULL
+#define RTOS_OBJECT_CLASS_THREAD RTOS_OBJECT_TYPE_TASK
+#define RTOS_OBJECT_CLASS_SEMAPHORE RTOS_OBJECT_TYPE_SEMAPHORE
+#define RTOS_OBJECT_CLASS_MUTEX RTOS_OBJECT_TYPE_MUTEX
+#define RTOS_OBJECT_CLASS_MESSAGEQUEUE RTOS_OBJECT_TYPE_QUEUE
+#define RTOS_OBJECT_CLASS_MEMPOOL RTOS_OBJECT_TYPE_MEMORY_POOL
+#define RTOS_OBJECT_CLASS_TIMER RTOS_OBJECT_TYPE_SW_TIMER
+
+/* 对象信息兼容性 */
+#define rtos_object_information rtos_object_information_t
 
 #endif /* __RTOS_H__ */
