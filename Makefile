@@ -29,10 +29,13 @@ INCLUDES = -I.
 # 源文件
 C_SOURCES = \
 	main.c \
-	rtos_kernel.c \
-	rtos_sync.c \
-	rtos_hw.c \
-	rtos_advanced.c
+	rtos_system.c \
+	rtos_object.c \
+	rtos_task.c \
+	rtos_semaphore.c \
+	rtos_mutex.c \
+	rtos_queue.c \
+	rtos_hw.c
 
 ASM_SOURCES = \
 	rtos_asm.s \
@@ -97,9 +100,11 @@ debug: $(TARGET).elf
 .PHONY: all clean flash debug size
 
 # 依赖关系
-main.o: main.c rtos_kernel.h
-rtos_kernel.o: rtos_kernel.c rtos_kernel.h rtos_hw.h
-rtos_sync.o: rtos_sync.c rtos_kernel.h
+main.o: main.c rtos.h
+rtos_object.o: rtos_object.c rtos_object.h rtos_kernel.h
+rtos_task.o: rtos_task.c rtos_task.h rtos_object.h rtos_kernel.h rtos_hw.h
+rtos_semaphore.o: rtos_semaphore.c rtos_semaphore.h rtos_object.h rtos_task.h rtos_kernel.h
+rtos_mutex.o: rtos_mutex.c rtos_mutex.h rtos_object.h rtos_task.h rtos_kernel.h
+rtos_queue.o: rtos_queue.c rtos_queue.h rtos_object.h rtos_task.h rtos_kernel.h
 rtos_hw.o: rtos_hw.c rtos_hw.h rtos_kernel.h
-rtos_advanced.o: rtos_advanced.c rtos_kernel.h rtos_hw.h
 rtos_asm.o: rtos_asm.s

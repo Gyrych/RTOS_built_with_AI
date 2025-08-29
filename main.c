@@ -1,9 +1,9 @@
 /**
  * @file main.c
- * @brief RTOS系统初始化和示例应用
+ * @brief RTOS系统初始化和示例应用 - 基于模块化内核对象系统
  */
 
-#include "rtos_kernel.h"
+#include "rtos.h"
 #include <stdio.h>
 
 /* 任务栈定义 */
@@ -19,7 +19,7 @@ static rtos_task_t task3;
 /* 同步对象 */
 static rtos_semaphore_t led_semaphore;
 static rtos_mutex_t uart_mutex;
-static rtos_queue_t data_queue;
+static rtos_messagequeue_t data_queue;
 
 /* 消息队列缓冲区 */
 static uint8_t queue_buffer[10 * sizeof(uint32_t)];
@@ -40,31 +40,36 @@ int main(void)
     /* 硬件初始化 */
     hardware_init();
     
-    /* RTOS初始化 */
-    if (rtos_init() != RTOS_OK) {
-        printf("RTOS初始化失败!\n");
+    /* RTOS系统初始化 */
+    if (rtos_system_init() != RTOS_OK) {
+        printf("RTOS系统初始化失败!\n");
         while(1);
     }
     
     /* 创建同步对象 */
-    rtos_semaphore_create(&led_semaphore, 1, 1);
-    rtos_mutex_create(&uart_mutex);
-    rtos_queue_create(&data_queue, queue_buffer, sizeof(uint32_t), 10);
+    rtos_sem_init(&led_semaphore, "led_sem", 1, 0);
+    rtos_mutex_init(&uart_mutex, "uart_mutex", 0);
+    rtos_mq_init(&data_queue, "data_queue", queue_buffer, sizeof(uint32_t), sizeof(queue_buffer), 0);
     
     /* 创建任务 */
-    rtos_task_create(&task1, "LED_Task", led_task, NULL, 2, 
-                     task1_stack, sizeof(task1_stack));
+    rtos_task_init(&task1, "LED_Task", led_task, NULL, 
+                   task1_stack, sizeof(task1_stack), 2, 10000);
     
-    rtos_task_create(&task2, "Sensor_Task", sensor_task, NULL, 1, 
-                     task2_stack, sizeof(task2_stack));
+    rtos_task_init(&task2, "Sensor_Task", sensor_task, NULL, 
+                   task2_stack, sizeof(task2_stack), 1, 10000);
     
-    rtos_task_create(&task3, "Comm_Task", communication_task, NULL, 3, 
-                     task3_stack, sizeof(task3_stack));
+    rtos_task_init(&task3, "Comm_Task", communication_task, NULL, 
+                   task3_stack, sizeof(task3_stack), 3, 10000);
     
     printf("RTOS系统启动...\n");
     
+    /* 启动任务 */
+    rtos_task_startup(&task1);
+    rtos_task_startup(&task2);
+    rtos_task_startup(&task3);
+    
     /* 启动RTOS调度器 */
-    if (rtos_start() != RTOS_OK) {
+    if (rtos_system_start() != RTOS_OK) {
         printf("RTOS启动失败!\n");
         while(1);
     }
@@ -82,18 +87,18 @@ void led_task(void *param)
     
     while(1) {
         /* 获取LED信号量 */
-        if (rtos_semaphore_take(&led_semaphore, 1000000) == RTOS_OK) { /* 1秒超时 */
-            printf("[%u] LED任务: LED闪烁 #%u\n", rtos_get_time_ms(), led_count++);
+        if (rtos_sem_take(&led_semaphore, 1000000000ULL) == RTOS_OK) { /* 1秒超时 */
+            printf("[%u] LED任务: LED闪烁 #%u\n", rtos_system_get_time_ms(), led_count++);
             
             /* 模拟LED操作耗时 */
-            rtos_delay_us(100000); /* 100ms */
+            rtos_system_delay_us(100000); /* 100ms */
             
             /* 释放信号量 */
-            rtos_semaphore_give(&led_semaphore);
+            rtos_sem_release(&led_semaphore);
         }
         
         /* 任务周期延时 */
-        rtos_delay_ms(500);
+        rtos_task_mdelay(500);
     }
 }
 
