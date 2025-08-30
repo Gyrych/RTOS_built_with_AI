@@ -59,7 +59,7 @@ rtos_event_group_t *rtos_event_group_create(const rtos_event_group_create_params
     }
     
     /* 初始化事件组 */
-    if (rtos_event_group_init(event_group, params) != RTOS_SUCCESS) {
+    if (rtos_event_group_init(event_group, params) != RTOS_OK) {
         rtos_free(event_group);
         return NULL;
     }
@@ -135,7 +135,7 @@ rtos_event_bits_t rtos_event_group_set_bits(rtos_event_group_t *event_group,
     
     /* 如果有任务需要唤醒，唤醒所有满足条件的任务 */
     if (should_wake) {
-        rtos_wait_queue_wake_all(&event_group->wait_queue, RTOS_SUCCESS);
+        rtos_wait_queue_wake_all(&event_group->wait_queue, RTOS_OK);
     }
     
     return new_bits;
@@ -227,7 +227,7 @@ rtos_event_bits_t rtos_event_group_wait_bits(rtos_event_group_t *event_group,
     /* 从等待队列中移除 */
     rtos_wait_queue_remove(&event_group->wait_queue, rtos_task_get_current());
     
-    if (result == RTOS_SUCCESS) {
+    if (result == RTOS_OK) {
         /* 等待成功，获取满足条件的事件位 */
         current_bits = event_group->bits;
         if (wait_for_all) {

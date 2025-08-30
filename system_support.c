@@ -123,23 +123,10 @@ int _getpid(void)
     return 1;
 }
 
-/* 中断处理程序 */
+/* 中断处理程序 - 由RTOS模块处理 */
 
-/**
- * @brief SVC中断处理程序
- */
-void SVC_Handler(void)
-{
-    /* 空实现 */
-}
-
-/**
- * @brief PendSV中断处理程序
- */
-void PendSV_Handler(void)
-{
-    /* 空实现 */
-}
+/* 这些中断处理程序现在由RTOS模块提供 */
+/* 使用弱符号定义，可以被RTOS模块覆盖 */
 
 /**
  * @brief 默认中断处理程序

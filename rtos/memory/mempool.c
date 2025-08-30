@@ -29,7 +29,7 @@ rtos_result_t rtos_memory_pool_init(rtos_memory_pool_t *mempool,
     }
     
     /* 初始化对象基类 */
-    rtos_object_init(&mempool->parent, RTOS_OBJECT_TYPE_MEMORY_POOL, params->name);
+    rtos_object_init(&mempool->parent, RTOS_OBJECT_TYPE_MEMORY_POOL, params->name, RTOS_OBJECT_FLAG_STATIC);
     
     /* 初始化内存池属性 */
     mempool->buffer = (uint8_t *)buffer;
@@ -56,7 +56,7 @@ rtos_result_t rtos_memory_pool_init(rtos_memory_pool_t *mempool,
     mempool->peak_usage = 0;
     mempool->fragmentation = 0;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -89,7 +89,7 @@ rtos_memory_pool_t *rtos_memory_pool_create(const rtos_memory_pool_create_params
     }
     
     /* 初始化内存池 */
-    if (rtos_memory_pool_init(mempool, params, buffer) != RTOS_SUCCESS) {
+    if (rtos_memory_pool_init(mempool, params, buffer) != RTOS_OK) {
         rtos_free(buffer);
         rtos_free(mempool);
         return NULL;
@@ -122,7 +122,7 @@ rtos_result_t rtos_memory_pool_delete(rtos_memory_pool_t *mempool)
     /* 释放内存池结构体 */
     rtos_free(mempool);
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -138,7 +138,7 @@ void *rtos_memory_pool_alloc(rtos_memory_pool_t *mempool, rtos_timeout_t timeout
     }
     
     /* 记录开始时间 */
-    start_time = rtos_get_system_time();
+    start_time = rtos_hw_get_system_time_ns();
     
     /* 尝试分配，直到成功或超时 */
     while (!block) {
@@ -150,7 +150,7 @@ void *rtos_memory_pool_alloc(rtos_memory_pool_t *mempool, rtos_timeout_t timeout
         
         /* 检查是否超时 */
         if (timeout != RTOS_WAIT_FOREVER) {
-            current_time = rtos_get_system_time();
+            current_time = rtos_hw_get_system_time_ns();
             if ((current_time - start_time) >= timeout) {
                 break;
             }
@@ -207,7 +207,7 @@ rtos_result_t rtos_memory_pool_free(rtos_memory_pool_t *mempool, void *block)
         /* 计算碎片化程度 */
         mempool->fragmentation = (mempool->free_count * 100) / mempool->block_count;
         
-        return RTOS_SUCCESS;
+        return RTOS_OK;
     }
     
     return RTOS_ERROR_NO_MEMORY;
@@ -262,7 +262,7 @@ rtos_result_t rtos_memory_pool_get_info(const rtos_memory_pool_t *mempool,
     info->peak_usage = mempool->peak_usage;
     info->fragmentation = mempool->fragmentation;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -290,7 +290,7 @@ rtos_result_t rtos_memory_pool_reset(rtos_memory_pool_t *mempool)
     mempool->peak_usage = 0;
     mempool->fragmentation = 0;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -425,5 +425,5 @@ rtos_result_t rtos_memory_pool_integrity_check(const rtos_memory_pool_t *mempool
         }
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }

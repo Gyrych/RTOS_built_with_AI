@@ -442,7 +442,7 @@ rtos_result_t rtos_hw_set_timer(rtos_time_ns_t timeout_ns)
         /* STM32F407：使用TIM2作为高精度定时器 */
         /* 这里需要根据具体硬件配置定时器寄存器 */
         /* 计算定时器重载值 */
-        uint32_t timer_ticks = (uint32_t)((timeout_ns * g_cpu_clock_freq) / 1000000000ULL);
+        /* uint32_t timer_ticks = (uint32_t)((timeout_ns * g_cpu_clock_freq) / 1000000000ULL); */
         
         /* 配置定时器（简化实现，实际需要操作寄存器） */
         /* TIM2->ARR = timer_ticks; */
@@ -555,9 +555,9 @@ uint32_t rtos_hw_get_info_string(char *buffer, uint32_t size)
     
     int len = snprintf(buffer, size, 
                        "Platform: %s\n"
-                       "CPU Count: %u\n"
-                       "System Clock: %u Hz\n"
-                       "CPU Clock: %u Hz\n"
+                       "CPU Count: %lu\n"
+                       "System Clock: %lu Hz\n"
+                       "CPU Clock: %lu Hz\n"
                        "Timer Running: %s\n"
                        "System Time: %lu ms",
                        platform_name,

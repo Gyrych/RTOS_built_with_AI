@@ -48,8 +48,13 @@ typedef enum {
     RTOS_ERROR_MEMORY_CORRUPTION,
     RTOS_ERROR_NOT_IMPLEMENTED,
     RTOS_ERROR_DELETED,
-    RTOS_ERROR_NOT_FOUND
+    RTOS_ERROR_NOT_FOUND,
+    RTOS_ERROR_ALREADY_EXISTS,
+    RTOS_ERROR_CORRUPTED
 } rtos_result_t;
+
+/* 兼容性定义 - 保持与现有代码的兼容性 */
+#define RTOS_SUCCESS RTOS_OK
 
 /* 时间类型定义 */
 typedef uint64_t rtos_time_ns_t;

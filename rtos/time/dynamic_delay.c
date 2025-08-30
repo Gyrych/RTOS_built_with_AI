@@ -296,9 +296,9 @@ uint32_t rtos_dynamic_delay_get_info_string(char *buffer, uint32_t size)
                        "  State: %s\n"
                        "  Current Delay: %lu ns\n"
                        "  Remaining: %lu ns\n"
-                       "  Total Delays: %u\n"
-                       "  Active Events: %u\n"
-                       "  Timer Reconfigs: %u\n"
+                                               "  Total Delays: %lu\n"
+                                               "  Active Events: %lu\n"
+                                               "  Timer Reconfigs: %lu\n"
                        "  Min Delay: %lu ns\n"
                        "  Max Delay: %lu ns\n"
                        "  Avg Delay: %lu ns",
