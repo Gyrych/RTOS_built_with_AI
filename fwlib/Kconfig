@@ -1,0 +1,196 @@
+#
+#   menuconfig stm32f4xx std fwlib V1.9.0配置目录
+# -------------------------------------------------------
+#   版 本 号   : V0.0.3
+#   作    者   : ryc
+#   生成日期   : 2023年03月22日  ryc  V0.0.1  初版
+#   修改记录   : 2023年04月23日  ryc  V0.0.2  添加stm32f4的dsp库和其配置项
+#                2024年03月12日  ryc  V0.0.3  添加必要的注释和缩进；
+#                                             目录改用“depends on”的方式选择，不再使用if判断选择，
+#                                             以解决RTT4.0和RTT5.0同时配置出错的问题；
+#
+
+menu "-- Stm32f4xx Std Fwlib V1.9.0 Config"
+	depends on USING_STM32F4XX_STD_FWLIB_V1_9_0
+	
+	config FWLIB_USING_MISC
+		bool "misc"
+		default n
+
+	config FWLIB_USING_ADC
+		bool "adc"
+		default n
+
+	config FWLIB_USING_CAN
+		bool "can"
+		default n
+
+	config FWLIB_USING_CEC
+		bool "cec"
+		default n
+
+	config FWLIB_USING_CRC
+		bool "crc"
+		default n
+
+	config FWLIB_USING_CRYP
+		bool "cryp"
+		default n
+
+	config FWLIB_USING_CRYP_AES
+		bool "cryp_aes"
+		default n
+
+	config FWLIB_USING_CRYP_DES
+		bool "cryp_des"
+		default n
+
+	config FWLIB_USING_CRYP_TDES
+		bool "cryp_tdes"
+		default n
+
+	config FWLIB_USING_DAC
+		bool "dac"
+		default n
+
+	config FWLIB_USING_DBGMCU
+		bool "dbgmcu"
+		default n
+
+	config FWLIB_USING_DCMI
+		bool "dcmi"
+		default n
+
+	config FWLIB_USING_DFSDM
+		bool "dfsdm"
+		default n
+
+	config FWLIB_USING_DMA
+		bool "dma"
+		default n
+
+	config FWLIB_USING_DMA2D
+		bool "dma2d"
+		default n
+
+	config FWLIB_USING_DSI
+		bool "dsi"
+		default n
+
+	config FWLIB_USING_EXTI
+		bool "exti"
+		default n
+
+	config FWLIB_USING_FLASH
+		bool "flash"
+		default n
+
+	config FWLIB_USING_FLASH_RAMFUNC
+		bool "flash_ramfunc"
+		default n
+
+	config FWLIB_USING_FMC
+		bool "fmc"
+		default n
+
+	config FWLIB_USING_FMPI2C
+		bool "fmpi2c"
+		default n
+
+	config FWLIB_USING_FSMC
+		bool "fsmc"
+		default n
+
+	config FWLIB_USING_GPIO
+		bool "gpio"
+		default n
+
+	config FWLIB_USING_HASH
+		bool "hash"
+		default n
+
+	config FWLIB_USING_HASH_MD5
+		bool "hash_md5"
+		default n
+
+	config FWLIB_USING_HASH_SHA1
+		bool "hash_sha1"
+		default n
+
+	config FWLIB_USING_I2C
+		bool "i2c"
+		default n
+
+	config FWLIB_USING_IWDG
+		bool "iwdg"
+		default n
+
+	config FWLIB_USING_LPTIM
+		bool "lptim"
+		default n
+
+	config FWLIB_USING_LTDC
+		bool "ltdc"
+		default n
+
+	config FWLIB_USING_PWR
+		bool "pwr"
+		default n
+
+	config FWLIB_USING_QSPI
+		bool "qspi"
+		default n
+
+	config FWLIB_USING_RCC
+		bool "rcc"
+		default n
+
+	config FWLIB_USING_RNG
+		bool "rng"
+		default n
+
+	config FWLIB_USING_RTC
+		bool "rtc"
+		default n
+
+	config FWLIB_USING_SAI
+		bool "sai"
+		default n
+
+	config FWLIB_USING_SDIO
+		bool "sdio"
+		default n
+
+	config FWLIB_USING_SPDIFRX
+		bool "spdifrx"
+		default n
+
+	config FWLIB_USING_SPI
+		bool "spi"
+		default n
+
+	config FWLIB_USING_SYSCFG
+		bool "syscfg"
+		default n
+
+	config FWLIB_USING_TIM
+		bool "tim"
+		default n
+
+	config FWLIB_USING_USART
+		bool "usart"
+		default n
+
+	config FWLIB_USING_WWDG
+		bool "wwdg"
+		default n
+
+	config FWLIB_USING_ARM_CORTEX_M4L_MATH
+		bool "arm_cortexM4l_math"
+		default n
+
+	config FWLIB_USING_ARM_CORTEX_M4LF_MATH
+		bool "arm_cortexM4lf_math"
+		default n
+	
+endmenu

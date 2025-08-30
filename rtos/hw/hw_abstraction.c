@@ -6,9 +6,16 @@
  */
 
 #include "hw_abstraction.h"
+#include "hw_config.h"
 #include "../core/types.h"
 #include <string.h>
 #include <stdio.h>
+
+/* 包含STM32F4标准固件库头文件 */
+#include "fwlib/CMSIS/STM32F4xx/Include/stm32f4xx.h"
+#include "fwlib/inc/stm32f4xx_tim.h"
+#include "fwlib/inc/stm32f4xx_rcc.h"
+#include "fwlib/inc/misc.h"
 
 /* 硬件平台信息 */
 static rtos_hw_platform_t g_hw_platform = RTOS_HW_PLATFORM_UNKNOWN;
@@ -20,6 +27,14 @@ static uint32_t g_cpu_clock_freq = 0;
 static rtos_time_ns_t g_system_start_time = 0;
 static rtos_time_ns_t g_hardware_timer_period = 0;
 static volatile bool g_hardware_timer_running = false;
+
+/* TIM2定时器配置信息 */
+static TIM_TimeBaseInitTypeDef g_tim2_config;
+static uint32_t g_tim2_clock_freq = 0;
+static uint32_t g_tim2_period = 0;
+
+/* 内部函数声明 */
+static rtos_result_t rtos_hw_timer_init(void);
 
 /* 硬件抽象层初始化 */
 rtos_result_t rtos_hw_abstraction_init(void)
@@ -47,11 +62,62 @@ rtos_result_t rtos_hw_abstraction_init(void)
         g_hw_platform = RTOS_HW_PLATFORM_UNKNOWN;
     #endif
     
-    /* 设置默认时钟频率 */
-    g_system_clock_freq = 168000000;  /* 168 MHz for STM32F4 */
+    /* 设置时钟频率 */
+    g_system_clock_freq = RTOS_HW_SYSTEM_CLOCK_FREQ;
     g_cpu_clock_freq = g_system_clock_freq;
     
+    /* 初始化TIM2定时器 */
+    if (rtos_hw_timer_init() != RTOS_OK) {
+        return RTOS_ERROR;
+    }
+    
     return RTOS_OK;
+}
+
+/**
+ * @brief 初始化硬件定时器
+ */
+static rtos_result_t rtos_hw_timer_init(void)
+{
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        /* 使能TIM2时钟 */
+        RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+        
+        /* 获取TIM2时钟频率 */
+        g_tim2_clock_freq = RTOS_HW_APB1_CLOCK_FREQ;
+        
+        /* 配置TIM2基本参数 */
+        TIM_TimeBaseStructInit(&g_tim2_config);
+        g_tim2_config.TIM_Prescaler = RTOS_HW_TIMER_PRESCALER;
+        g_tim2_config.TIM_CounterMode = TIM_CounterMode_Up;
+        g_tim2_config.TIM_Period = RTOS_HW_TIMER_MAX_PERIOD;
+        g_tim2_config.TIM_ClockDivision = TIM_CKD_DIV1;
+        g_tim2_config.TIM_RepetitionCounter = 0;
+        
+        /* 初始化TIM2 */
+        TIM_TimeBaseInit(TIM2, &g_tim2_config);
+        
+        /* 配置TIM2中断 */
+        TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
+        
+        /* 配置NVIC中断优先级 */
+        NVIC_InitTypeDef nvic_config;
+        nvic_config.NVIC_IRQChannel = TIM2_IRQn;
+        nvic_config.NVIC_IRQChannelPreemptionPriority = RTOS_HW_TIMER_IRQ_PRIORITY;
+        nvic_config.NVIC_IRQChannelSubPriority = 0;
+        nvic_config.NVIC_IRQChannelCmd = ENABLE;
+        NVIC_Init(&nvic_config);
+        
+        /* 使能TIM2中断 */
+        NVIC_EnableIRQ(TIM2_IRQn);
+        
+        /* 停止定时器 */
+        TIM_Cmd(TIM2, DISABLE);
+        
+        return RTOS_OK;
+    #else
+        return RTOS_ERROR_NOT_IMPLEMENTED;
+    #endif
 }
 
 /**
@@ -431,6 +497,13 @@ rtos_result_t rtos_hw_set_timer(rtos_time_ns_t timeout_ns)
         return RTOS_ERROR_INVALID_PARAM;
     }
     
+    /* 检查时间范围 */
+    if (timeout_ns < RTOS_HW_MIN_TIMER_PERIOD_NS) {
+        timeout_ns = RTOS_HW_MIN_TIMER_PERIOD_NS;
+    } else if (timeout_ns > RTOS_HW_MAX_TIMER_PERIOD_NS) {
+        timeout_ns = RTOS_HW_MAX_TIMER_PERIOD_NS;
+    }
+    
     /* 停止当前定时器 */
     rtos_hw_stop_timer();
     
@@ -439,17 +512,33 @@ rtos_result_t rtos_hw_set_timer(rtos_time_ns_t timeout_ns)
     g_hardware_timer_running = true;
     
     #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-        /* STM32F407：使用TIM2作为高精度定时器 */
-        /* 这里需要根据具体硬件配置定时器寄存器 */
         /* 计算定时器重载值 */
-        /* uint32_t timer_ticks = (uint32_t)((timeout_ns * g_cpu_clock_freq) / 1000000000ULL); */
+        /* 纳秒转换为定时器周期数 */
+        uint64_t timer_ticks = (timeout_ns * g_tim2_clock_freq) / 1000000000ULL;
         
-        /* 配置定时器（简化实现，实际需要操作寄存器） */
-        /* TIM2->ARR = timer_ticks; */
-        /* TIM2->CR1 |= TIM_CR1_CEN; */
+        /* 限制在32位范围内 */
+        if (timer_ticks > 0xFFFFFFFF) {
+            timer_ticks = 0xFFFFFFFF;
+        }
+        
+        g_tim2_period = (uint32_t)timer_ticks;
+        
+        /* 配置TIM2周期 */
+        TIM_SetAutoreload(TIM2, g_tim2_period);
+        
+        /* 清零计数器 */
+        TIM_SetCounter(TIM2, 0);
+        
+        /* 清除中断标志 */
+        TIM_ClearFlag(TIM2, TIM_FLAG_Update);
+        
+        /* 启动定时器 */
+        TIM_Cmd(TIM2, ENABLE);
+        
+        return RTOS_OK;
+    #else
+        return RTOS_ERROR_NOT_IMPLEMENTED;
     #endif
-    
-    return RTOS_OK;
 }
 
 /**
@@ -465,11 +554,16 @@ rtos_result_t rtos_hw_stop_timer(void)
     g_hardware_timer_period = 0;
     
     #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-        /* 停止定时器（简化实现） */
-        /* TIM2->CR1 &= ~TIM_CR1_CEN; */
+        /* 停止定时器 */
+        TIM_Cmd(TIM2, DISABLE);
+        
+        /* 清除中断标志 */
+        TIM_ClearFlag(TIM2, TIM_FLAG_Update);
+        
+        return RTOS_OK;
+    #else
+        return RTOS_ERROR_NOT_IMPLEMENTED;
     #endif
-    
-    return RTOS_OK;
 }
 
 /**
@@ -482,13 +576,19 @@ rtos_time_ns_t rtos_hw_get_timer_remaining(void)
     }
     
     #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-        /* 获取定时器当前值（简化实现） */
-        /* uint32_t current_count = TIM2->CNT; */
-        /* uint32_t reload_value = TIM2->ARR; */
-        /* return ((uint64_t)(reload_value - current_count) * 1000000000ULL) / g_cpu_clock_freq; */
+        /* 获取定时器当前值 */
+        uint32_t current_count = TIM_GetCounter(TIM2);
+        uint32_t reload_value = TIM2->ARR;  /* 直接访问ARR寄存器 */
         
-        /* 简化实现：返回设置的周期 */
-        return g_hardware_timer_period;
+        if (current_count >= reload_value) {
+            return 0;  /* 定时器已到期 */
+        }
+        
+        /* 计算剩余时间 */
+        uint32_t remaining_ticks = reload_value - current_count;
+        rtos_time_ns_t remaining_ns = ((uint64_t)remaining_ticks * 1000000000ULL) / g_tim2_clock_freq;
+        
+        return remaining_ns;
     #else
         return g_hardware_timer_period;
     #endif
@@ -501,6 +601,12 @@ void rtos_hw_timer_interrupt_handler(void)
 {
     if (g_hardware_timer_running) {
         g_hardware_timer_running = false;
+        
+        /* 停止定时器 */
+        TIM_Cmd(TIM2, DISABLE);
+        
+        /* 清除中断标志 */
+        TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
         
         /* 触发调度器 */
         extern void rtos_scheduler_schedule(void);

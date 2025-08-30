@@ -41,6 +41,9 @@
 #include "rtos/hw/hw_abstraction.h"
 #include "rtos/hw/interrupt_handler.h"
 
+/* 包含硬件定时器测试模块 */
+#include "rtos/hw/hw_timer_test.h"
+
 /* 系统核心函数声明 */
 
 /**
