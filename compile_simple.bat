@@ -1,4 +1,7 @@
 @echo off
+REM 设置控制台编码为UTF-8，解决PowerShell中的中文乱码问题
+chcp 65001 >nul 2>&1
+
 echo 编译RTOS项目...
 
 REM 设置编译器路径
