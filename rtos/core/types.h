@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 /* 系统版本信息 */
 #define RTOS_VERSION_MAJOR      2
@@ -45,7 +46,9 @@ typedef enum {
     RTOS_ERROR_DEADLOCK,
     RTOS_ERROR_STACK_OVERFLOW,
     RTOS_ERROR_MEMORY_CORRUPTION,
-    RTOS_ERROR_NOT_IMPLEMENTED
+    RTOS_ERROR_NOT_IMPLEMENTED,
+    RTOS_ERROR_DELETED,
+    RTOS_ERROR_NOT_FOUND
 } rtos_result_t;
 
 /* 时间类型定义 */
@@ -121,6 +124,7 @@ typedef uint32_t rtos_stack_size_t;
 typedef uint64_t rtos_timeout_t;
 #define RTOS_TIMEOUT_INF        0xFFFFFFFFFFFFFFFFULL
 #define RTOS_TIMEOUT_IMMEDIATE  0
+#define RTOS_WAIT_FOREVER       RTOS_TIMEOUT_INF
 
 /* 系统状态定义 */
 typedef enum {
@@ -181,10 +185,19 @@ typedef struct {
     rtos_time_ns_t average_period;
 } rtos_timer_stats_t;
 
+/* 等待标志定义 */
+typedef enum {
+    RTOS_WAIT_FLAG_NONE = 0x00,
+    RTOS_WAIT_FLAG_ALL = 0x01,
+    RTOS_WAIT_FLAG_CLEAR_ON_EXIT = 0x02
+} rtos_wait_flag_t;
+
 /* 等待队列节点 - 新增统一等待队列设计 */
 typedef struct rtos_wait_node {
     struct rtos_task      *task;               /* 等待的任务 */
     rtos_timeout_t        timeout;             /* 超时时间 */
+    void                  *data;               /* 等待数据 */
+    rtos_wait_flag_t      flags;               /* 等待标志 */
     struct rtos_wait_node *next;               /* 下一个节点 */
     struct rtos_wait_node *prev;               /* 上一个节点 */
 } rtos_wait_node_t;
@@ -198,5 +211,9 @@ typedef struct rtos_wait_node {
 #define RTOS_OBJECT_CLASS_MESSAGEQUEUE RTOS_OBJECT_TYPE_QUEUE
 #define RTOS_OBJECT_CLASS_MEMPOOL RTOS_OBJECT_TYPE_MEMORY_POOL
 #define RTOS_OBJECT_CLASS_TIMER RTOS_OBJECT_TYPE_SW_TIMER
+
+/* 内存分配函数定义 */
+#define rtos_malloc(size) malloc(size)
+#define rtos_free(ptr) free(ptr)
 
 #endif /* __RTOS_TYPES_H__ */

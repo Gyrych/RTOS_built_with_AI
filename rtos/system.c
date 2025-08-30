@@ -6,6 +6,7 @@
  */
 
 #include "rtos.h"
+#include "time/tickless.h"
 #include <string.h>
 #include <stddef.h>
 
@@ -40,6 +41,15 @@ rtos_result_t rtos_system_init(void)
     /* 初始化调度器 */
     rtos_scheduler_init();
     
+    /* 初始化tickless时间管理器 */
+    rtos_tickless_init();
+    
+    /* 初始化动态延时管理器 */
+    rtos_dynamic_delay_init();
+    
+    /* 初始化中断系统 */
+    rtos_interrupt_system_init();
+    
     /* 初始化系统统计信息 */
     memset(&g_system_stats, 0, sizeof(g_system_stats));
     memset(&g_memory_stats, 0, sizeof(g_memory_stats));
@@ -66,6 +76,12 @@ rtos_result_t rtos_system_start(void)
     
     /* 设置系统状态 */
     g_system_state = RTOS_SYSTEM_STATE_RUNNING;
+    
+    /* 启动tickless时间管理器 */
+    rtos_tickless_start();
+    
+    /* 启动动态延时管理器 */
+    rtos_dynamic_delay_start();
     
     /* 启动调度器 */
     rtos_scheduler_start();
@@ -247,27 +263,45 @@ void rtos_system_get_version_numbers(uint8_t *major, uint8_t *minor, uint8_t *pa
 }
 
 /**
- * @brief 系统延时(毫秒)
+ * @brief 系统延时(毫秒) - 使用动态定时器
  */
 rtos_result_t rtos_system_delay_ms(uint32_t ms)
 {
-    return rtos_task_delay_ms(ms);
+    /* 如果在任务上下文中，使用任务延时 */
+    if (rtos_task_get_current()) {
+        return rtos_task_delay_ms(ms);
+    }
+    
+    /* 如果在中断上下文中，使用动态延时管理器 */
+    return rtos_dynamic_delay_request(RTOS_TIMER_MS_TO_NS(ms));
 }
 
 /**
- * @brief 系统延时(微秒)
+ * @brief 系统延时(微秒) - 使用动态定时器
  */
 rtos_result_t rtos_system_delay_us(uint32_t us)
 {
-    return rtos_task_delay_us(us);
+    /* 如果在任务上下文中，使用任务延时 */
+    if (rtos_task_get_current()) {
+        return rtos_task_delay_us(us);
+    }
+    
+    /* 如果在中断上下文中，使用动态延时管理器 */
+    return rtos_dynamic_delay_request(RTOS_TIMER_US_TO_NS(us));
 }
 
 /**
- * @brief 系统延时(纳秒)
+ * @brief 系统延时(纳秒) - 使用动态定时器
  */
 rtos_result_t rtos_system_delay_ns(rtos_time_ns_t ns)
 {
-    return rtos_task_delay_ns(ns);
+    /* 如果在任务上下文中，使用任务延时 */
+    if (rtos_task_get_current()) {
+        return rtos_task_delay_ns(ns);
+    }
+    
+    /* 如果在中断上下文中，使用动态延时管理器 */
+    return rtos_dynamic_delay_request(ns);
 }
 
 /**

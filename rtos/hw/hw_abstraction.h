@@ -53,6 +53,12 @@ typedef enum {
 /* 硬件抽象层API函数声明 */
 
 /**
+ * @brief 初始化硬件抽象层
+ * @return 操作结果
+ */
+rtos_result_t rtos_hw_abstraction_init(void);
+
+/**
  * @brief 获取硬件平台类型
  * @return 硬件平台类型
  */
@@ -102,10 +108,10 @@ void rtos_hw_delay_us(uint32_t us);
 void rtos_hw_delay_ms(uint32_t ms);
 
 /**
- * @brief 获取系统滴答计数
- * @return 系统滴答计数
+ * @brief 获取高精度时间戳(纳秒)
+ * @return 高精度时间戳(纳秒)
  */
-uint32_t rtos_hw_get_tick_count(void);
+rtos_time_ns_t rtos_hw_get_timestamp_ns(void);
 
 /**
  * @brief 获取系统运行时间(纳秒)
@@ -259,6 +265,31 @@ void rtos_hw_watchdog_feed(void);
  * @brief 硬件看门狗停止
  */
 void rtos_hw_watchdog_stop(void);
+
+/**
+ * @brief 设置硬件定时器
+ * @param timeout_ns 超时时间(纳秒)
+ * @return 操作结果
+ */
+rtos_result_t rtos_hw_set_timer(rtos_time_ns_t timeout_ns);
+
+/**
+ * @brief 停止硬件定时器
+ * @return 操作结果
+ */
+rtos_result_t rtos_hw_stop_timer(void);
+
+/**
+ * @brief 获取硬件定时器剩余时间
+ * @return 剩余时间(纳秒)
+ */
+rtos_time_ns_t rtos_hw_get_timer_remaining(void);
+
+/**
+ * @brief 硬件定时器中断处理函数
+ * 此函数由硬件定时器中断调用
+ */
+void rtos_hw_timer_interrupt_handler(void);
 
 /**
  * @brief 获取硬件信息字符串

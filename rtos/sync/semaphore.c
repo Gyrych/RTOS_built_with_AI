@@ -174,6 +174,10 @@ rtos_result_t rtos_semaphore_give(rtos_semaphore_t *sem)
     /* 唤醒等待的任务 */
     rtos_semaphore_wakeup_waiting_tasks(sem);
     
+    /* 检查是否需要抢占 */
+    extern void rtos_scheduler_preempt_check(void);
+    rtos_scheduler_preempt_check();
+    
     return RTOS_OK;
 }
 
@@ -258,6 +262,6 @@ static void rtos_semaphore_wakeup_waiting_tasks(rtos_semaphore_t *sem)
     waiting_task->timeout = 0;
     
     /* 添加到就绪队列 */
-    /* 这里需要调用任务管理模块的函数 */
-    /* 暂时使用简单的状态设置 */
+    extern void rtos_task_add_to_ready_queue_from_wait(rtos_task_t *task);
+    rtos_task_add_to_ready_queue_from_wait(waiting_task);
 }

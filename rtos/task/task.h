@@ -18,6 +18,9 @@ typedef struct rtos_task_node {
     struct rtos_task_node *prev;               /* 上一个节点 */
 } rtos_task_node_t;
 
+/* 前向声明 */
+struct rtos_time_event;
+
 /* 任务控制块结构体 */
 typedef struct rtos_task {
     rtos_object_t          parent;             /* 继承对象基类 */
@@ -48,6 +51,9 @@ typedef struct rtos_task {
     /* 同步相关 */
     struct rtos_object    *wait_object;        /* 等待的对象 */
     rtos_timeout_t        timeout;             /* 超时时间 */
+    
+    /* Tickless延时支持 */
+    struct rtos_time_event *delay_event;      /* 延时事件 */
     
     /* 统计信息 */
     rtos_time_ns_t        total_runtime;       /* 总运行时间 */
@@ -323,6 +329,30 @@ typedef void (*rtos_task_switch_hook_t)(rtos_task_t *from, rtos_task_t *to);
  * @param hook 钩子函数
  */
 void rtos_task_set_switch_hook(rtos_task_switch_hook_t hook);
+
+/**
+ * @brief 从延时中唤醒任务
+ * @param task 任务指针
+ */
+void rtos_task_wakeup_from_delay(rtos_task_t *task);
+
+/**
+ * @brief 检查是否需要抢占当前任务
+ * @return 是否需要抢占
+ */
+bool rtos_scheduler_need_preempt(void);
+
+/**
+ * @brief 强制执行抢占式调度检查
+ * 在关键操作后调用，确保高优先级任务能立即运行
+ */
+void rtos_scheduler_preempt_check(void);
+
+/**
+ * @brief 从等待队列将任务添加到就绪队列
+ * @param task 任务指针
+ */
+void rtos_task_add_to_ready_queue_from_wait(rtos_task_t *task);
 
 /* 兼容性定义 - 保持与现有代码的兼容性 */
 #define rtos_task_init rtos_task_create_static

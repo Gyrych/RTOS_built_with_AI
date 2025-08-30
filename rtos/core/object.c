@@ -502,3 +502,104 @@ rtos_object_t *rtos_object_get_list_head(void)
 {
     return &g_object_list_head;
 }
+
+/* 等待队列辅助函数实现 */
+
+/**
+ * @brief 初始化等待节点
+ */
+void rtos_wait_node_init(rtos_wait_node_t *node, struct rtos_task *task, void *data, rtos_wait_flag_t flags)
+{
+    if (!node) {
+        return;
+    }
+    
+    node->task = task;
+    node->timeout = 0;
+    node->data = data;
+    node->flags = flags;
+    node->next = NULL;
+    node->prev = NULL;
+}
+
+/**
+ * @brief 获取等待节点的任务
+ */
+struct rtos_task *rtos_wait_node_get_task(const rtos_wait_node_t *node)
+{
+    if (!node) {
+        return NULL;
+    }
+    
+    return node->task;
+}
+
+/**
+ * @brief 获取等待节点的数据
+ */
+void *rtos_wait_node_get_data(const rtos_wait_node_t *node)
+{
+    if (!node) {
+        return NULL;
+    }
+    
+    return node->data;
+}
+
+/**
+ * @brief 获取等待节点的标志
+ */
+rtos_wait_flag_t rtos_wait_node_get_flags(const rtos_wait_node_t *node)
+{
+    if (!node) {
+        return RTOS_WAIT_FLAG_NONE;
+    }
+    
+    return node->flags;
+}
+
+/**
+ * @brief 唤醒所有等待的任务
+ */
+void rtos_wait_queue_wake_all(rtos_wait_node_t *head, rtos_result_t result)
+{
+    if (!head) {
+        return;
+    }
+    
+    rtos_wait_node_t *current = head->next;
+    rtos_wait_node_t *next;
+    
+    while (current != head) {
+        next = current->next;
+        
+        if (current->task) {
+            /* 唤醒任务 */
+            extern void rtos_task_add_to_ready_queue_from_wait(struct rtos_task *task);
+            rtos_task_add_to_ready_queue_from_wait(current->task);
+        }
+        
+        /* 从队列中移除 */
+        current->prev->next = current->next;
+        current->next->prev = current->prev;
+        
+        current = next;
+    }
+}
+
+/**
+ * @brief 等待节点等待
+ */
+rtos_result_t rtos_wait_node_wait(rtos_wait_node_t *node, rtos_timeout_t timeout)
+{
+    if (!node || !node->task) {
+        return RTOS_ERROR_INVALID_PARAM;
+    }
+    
+    /* 简化实现：设置任务为阻塞状态 */
+    node->timeout = timeout;
+    
+    /* 这里应该实现具体的等待逻辑 */
+    /* 暂时返回成功 */
+    return RTOS_OK;
+}

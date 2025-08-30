@@ -28,11 +28,18 @@
 /* 包含定时器模块(框架) */
 #include "rtos/time/timer.h"
 
+/* 包含Tickless时间管理模块 */
+#include "rtos/time/tickless.h"
+
+/* 包含动态延时管理模块 */
+#include "rtos/time/dynamic_delay.h"
+
 /* 包含内存池模块(框架) */
 #include "rtos/memory/mempool.h"
 
 /* 包含硬件抽象层 */
 #include "rtos/hw/hw_abstraction.h"
+#include "rtos/hw/interrupt_handler.h"
 
 /* 系统核心函数声明 */
 

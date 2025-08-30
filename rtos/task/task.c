@@ -6,6 +6,7 @@
  */
 
 #include "task.h"
+#include "../time/tickless.h"
 #include <string.h>
 #include <stddef.h>
 
@@ -115,6 +116,9 @@ rtos_result_t rtos_task_create_static(rtos_task_t *task,
     /* 初始化同步相关 */
     task->wait_object = NULL;
     task->timeout = 0;
+    
+    /* 初始化Tickless延时支持 */
+    task->delay_event = NULL;
     
     /* 初始化统计信息 */
     task->total_runtime = 0;
@@ -352,8 +356,30 @@ rtos_result_t rtos_task_delay_ns(rtos_time_ns_t ns)
         return RTOS_OK;
     }
     
-    /* 设置超时时间 */
-    g_current_task->timeout = ns;
+    /* 创建延时事件 */
+    rtos_time_event_t *delay_event = (rtos_time_event_t *)rtos_malloc(sizeof(rtos_time_event_t));
+    if (!delay_event) {
+        return RTOS_ERROR_NO_MEMORY;
+    }
+    
+    delay_event->type = RTOS_TIME_EVENT_TASK_DELAY;
+    delay_event->object = g_current_task;
+    delay_event->callback = NULL;
+    delay_event->next = NULL;
+    delay_event->prev = NULL;
+    
+    /* 关联到任务 */
+    g_current_task->delay_event = delay_event;
+    
+    /* 添加到tickless时间管理器 */
+    rtos_result_t result = rtos_tickless_add_event(delay_event, ns);
+    if (result != RTOS_OK) {
+        rtos_free(delay_event);
+        g_current_task->delay_event = NULL;
+        return result;
+    }
+    
+    /* 设置任务状态为阻塞 */
     g_current_task->state = RTOS_TASK_STATE_BLOCKED;
     
     /* 从就绪队列移除，添加到阻塞队列 */
@@ -375,8 +401,14 @@ rtos_result_t rtos_task_delay_until(rtos_time_ns_t absolute_time)
         return RTOS_ERROR;
     }
     
+    /* 获取当前时间 */
+    rtos_time_ns_t current_time = rtos_tickless_get_current_time();
+    
+    if (absolute_time <= current_time) {
+        return RTOS_OK; /* 时间已到 */
+    }
+    
     /* 计算相对延时时间 */
-    rtos_time_ns_t current_time = 0; /* 需要从系统时钟获取 */
     rtos_time_ns_t delay_time = absolute_time - current_time;
     
     return rtos_task_delay_ns(delay_time);
@@ -588,12 +620,23 @@ void rtos_scheduler_schedule(void)
     
     /* 获取最高优先级的就绪任务 */
     rtos_task_t *next_task = rtos_task_get_highest_priority_ready();
-    if (next_task == NULL || next_task == g_current_task) {
+    if (next_task == NULL) {
         return;
     }
     
-    /* 执行任务切换 */
-    rtos_task_switch_to(next_task);
+    /* 完全基于优先级的抢占式调度 */
+    if (next_task != g_current_task) {
+        /* 如果找到更高优先级的任务，立即切换 */
+        if (g_current_task) {
+            /* 当前任务还在运行，将其设为就绪状态 */
+            if (g_current_task->state == RTOS_TASK_STATE_RUNNING) {
+                g_current_task->state = RTOS_TASK_STATE_READY;
+            }
+        }
+        
+        /* 执行任务切换 */
+        rtos_task_switch_to(next_task);
+    }
 }
 
 /**
@@ -760,12 +803,14 @@ static void rtos_task_switch_to(rtos_task_t *new_task)
     g_current_task = new_task;
     g_current_task->state = RTOS_TASK_STATE_RUNNING;
     g_current_task->switch_count++;
+    g_current_task->last_run_time = rtos_tickless_get_current_time();
     
     /* 更新统计信息 */
     g_task_switch_count++;
     
-    /* 这里需要实现具体的上下文切换 */
-    /* 调用硬件相关的上下文切换函数 */
+    /* 触发硬件上下文切换 */
+    extern void rtos_trigger_schedule_interrupt(void);
+    rtos_trigger_schedule_interrupt();
 }
 
 /**
@@ -805,4 +850,79 @@ uint32_t *rtos_task_stack_init(void (*task_entry)(void *),
 void rtos_task_set_switch_hook(rtos_task_switch_hook_t hook)
 {
     g_task_switch_hook = hook;
+}
+
+/**
+ * @brief 从延时中唤醒任务
+ */
+void rtos_task_wakeup_from_delay(rtos_task_t *task)
+{
+    if (!task || task->state != RTOS_TASK_STATE_BLOCKED) {
+        return;
+    }
+    
+    /* 清理延时事件 */
+    if (task->delay_event) {
+        rtos_free(task->delay_event);
+        task->delay_event = NULL;
+    }
+    
+    /* 从阻塞队列移除，添加到就绪队列 */
+    rtos_task_remove_from_blocked_queue(task);
+    task->state = RTOS_TASK_STATE_READY;
+    rtos_task_add_to_ready_queue(task);
+    
+    /* 如果被唤醒的任务优先级更高，立即触发调度 */
+    if (g_current_task && task->priority < g_current_task->priority) {
+        rtos_scheduler_schedule();
+    }
+}
+
+/**
+ * @brief 检查是否需要抢占当前任务
+ */
+bool rtos_scheduler_need_preempt(void)
+{
+    if (!g_scheduler_running || g_scheduler_lock_level > 0) {
+        return false;
+    }
+    
+    if (!g_current_task) {
+        return true; /* 没有当前任务，需要调度 */
+    }
+    
+    /* 获取最高优先级的就绪任务 */
+    rtos_task_t *highest_ready = rtos_task_get_highest_priority_ready();
+    if (!highest_ready) {
+        return false; /* 没有就绪任务 */
+    }
+    
+    /* 如果就绪任务优先级更高，需要抢占 */
+    return (highest_ready->priority < g_current_task->priority);
+}
+
+/**
+ * @brief 强制执行抢占式调度检查
+ */
+void rtos_scheduler_preempt_check(void)
+{
+    if (rtos_scheduler_need_preempt()) {
+        rtos_scheduler_schedule();
+    }
+}
+
+/**
+ * @brief 从等待队列将任务添加到就绪队列
+ */
+void rtos_task_add_to_ready_queue_from_wait(rtos_task_t *task)
+{
+    if (!task) {
+        return;
+    }
+    
+    /* 设置任务为就绪状态 */
+    task->state = RTOS_TASK_STATE_READY;
+    
+    /* 添加到就绪队列 */
+    rtos_task_add_to_ready_queue(task);
 }

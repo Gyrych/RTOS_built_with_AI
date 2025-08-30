@@ -238,6 +238,65 @@ bool rtos_wait_queue_is_empty(const rtos_wait_node_t *head);
  */
 uint32_t rtos_wait_queue_get_length(const rtos_wait_node_t *head);
 
+/**
+ * @brief 初始化等待节点
+ * @param node 等待节点指针
+ * @param task 任务指针
+ * @param data 等待数据
+ * @param flags 等待标志
+ */
+void rtos_wait_node_init(rtos_wait_node_t *node, struct rtos_task *task, void *data, rtos_wait_flag_t flags);
+
+/**
+ * @brief 获取等待节点的任务
+ * @param node 等待节点指针
+ * @return 任务指针
+ */
+struct rtos_task *rtos_wait_node_get_task(const rtos_wait_node_t *node);
+
+/**
+ * @brief 获取等待节点的数据
+ * @param node 等待节点指针
+ * @return 数据指针
+ */
+void *rtos_wait_node_get_data(const rtos_wait_node_t *node);
+
+/**
+ * @brief 获取等待节点的标志
+ * @param node 等待节点指针
+ * @return 等待标志
+ */
+rtos_wait_flag_t rtos_wait_node_get_flags(const rtos_wait_node_t *node);
+
+/**
+ * @brief 唤醒所有等待的任务
+ * @param head 队列头指针
+ * @param result 唤醒结果
+ */
+void rtos_wait_queue_wake_all(rtos_wait_node_t *head, rtos_result_t result);
+
+/**
+ * @brief 等待节点等待
+ * @param node 等待节点指针
+ * @param timeout 超时时间
+ * @return 等待结果
+ */
+rtos_result_t rtos_wait_node_wait(rtos_wait_node_t *node, rtos_timeout_t timeout);
+
+/* 对象系统管理函数 */
+
+/**
+ * @brief 初始化对象系统
+ */
+void rtos_object_system_init(void);
+
+/**
+ * @brief 获取对象容器
+ * @param type 对象类型
+ * @return 容器指针
+ */
+rtos_object_information_t *rtos_object_get_container(rtos_object_type_t type);
+
 /* 链表操作宏 - 优化版本 */
 #define rtos_list_entry(ptr, type, member) \
     ((type *)((char *)(ptr) - offsetof(type, member)))

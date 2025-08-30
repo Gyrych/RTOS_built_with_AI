@@ -22,7 +22,7 @@ rtos_result_t rtos_event_group_init(rtos_event_group_t *event_group,
     }
     
     /* 初始化对象基类 */
-    rtos_object_init(&event_group->parent, RTOS_OBJECT_TYPE_EVENT_GROUP, params->name);
+    rtos_object_init(&event_group->parent, RTOS_OBJECT_TYPE_EVENT_GROUP, params->name, RTOS_OBJECT_FLAG_STATIC);
     
     /* 初始化事件组属性 */
     event_group->bits = params->initial_bits;
@@ -38,7 +38,7 @@ rtos_result_t rtos_event_group_init(rtos_event_group_t *event_group,
     event_group->clear_count = 0;
     event_group->wait_count_total = 0;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -82,7 +82,7 @@ rtos_result_t rtos_event_group_delete(rtos_event_group_t *event_group)
     /* 释放内存 */
     rtos_free(event_group);
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -219,13 +219,13 @@ rtos_event_bits_t rtos_event_group_wait_bits(rtos_event_group_t *event_group,
     rtos_wait_node_init(&wait_node, rtos_task_get_current(), (void *)(uintptr_t)bits, flags);
     
     /* 添加到等待队列 */
-    rtos_wait_queue_add(&event_group->wait_queue, &wait_node);
+    rtos_wait_queue_add(&event_group->wait_queue, rtos_task_get_current(), timeout);
     
     /* 等待事件 */
     result = rtos_wait_node_wait(&wait_node, timeout);
     
     /* 从等待队列中移除 */
-    rtos_wait_queue_remove(&wait_node);
+    rtos_wait_queue_remove(&event_group->wait_queue, rtos_task_get_current());
     
     if (result == RTOS_SUCCESS) {
         /* 等待成功，获取满足条件的事件位 */
@@ -296,7 +296,7 @@ rtos_result_t rtos_event_group_get_info(const rtos_event_group_t *event_group,
     info->set_count = event_group->set_count;
     info->clear_count = event_group->clear_count;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -318,7 +318,7 @@ rtos_result_t rtos_event_group_reset(rtos_event_group_t *event_group,
     event_group->set_count = 0;
     event_group->clear_count = 0;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -349,7 +349,7 @@ rtos_result_t rtos_event_group_sync(rtos_event_group_t *event_group,
         rtos_event_group_set_bits(event_group, sync_bits);
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -414,7 +414,7 @@ rtos_result_t rtos_event_group_get_stats(const rtos_event_group_t *event_group,
         *wait_count_total = event_group->wait_count_total;
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**

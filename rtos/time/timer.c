@@ -6,6 +6,7 @@
  */
 
 #include "timer.h"
+#include "tickless.h"
 #include "../core/object.h"
 #include "../core/types.h"
 #include <string.h>
@@ -13,11 +14,17 @@
 /* 全局定时器链表头 */
 static rtos_sw_timer_t *g_timer_list = NULL;
 
+/* 定时器事件数据结构 */
+typedef struct rtos_timer_event_data {
+    rtos_sw_timer_t       *timer;              /* 关联的定时器 */
+    rtos_time_event_t     time_event;          /* 时间事件 */
+} rtos_timer_event_data_t;
+
 /* 内部函数声明 */
 static void rtos_timer_list_insert(rtos_sw_timer_t *timer);
 static void rtos_timer_list_remove(rtos_sw_timer_t *timer);
 static void rtos_timer_list_update(rtos_sw_timer_t *timer);
-static rtos_time_ns_t rtos_timer_get_current_time(void);
+static void rtos_timer_expired_callback(void *parameter);
 
 /**
  * @brief 初始化软件定时器 - 静态方式
@@ -34,7 +41,7 @@ rtos_result_t rtos_sw_timer_init(rtos_sw_timer_t *timer,
     }
     
     /* 初始化对象基类 */
-    rtos_object_init(&timer->parent, RTOS_OBJECT_TYPE_TIMER, params->name);
+    rtos_object_init(&timer->parent, RTOS_OBJECT_TYPE_SW_TIMER, params->name, RTOS_OBJECT_FLAG_STATIC);
     
     /* 初始化定时器属性 */
     timer->callback = params->callback;
@@ -53,7 +60,7 @@ rtos_result_t rtos_sw_timer_init(rtos_sw_timer_t *timer,
     timer->last_trigger_time = 0;
     timer->total_runtime = 0;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -74,7 +81,7 @@ rtos_sw_timer_t *rtos_sw_timer_create(const rtos_sw_timer_create_params_t *param
     }
     
     /* 初始化定时器 */
-    if (rtos_sw_timer_init(timer, params) != RTOS_SUCCESS) {
+    if (rtos_sw_timer_init(timer, params) != RTOS_OK) {
         rtos_free(timer);
         return NULL;
     }
@@ -102,7 +109,7 @@ rtos_result_t rtos_sw_timer_delete(rtos_sw_timer_t *timer)
     /* 释放内存 */
     rtos_free(timer);
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -115,18 +122,38 @@ rtos_result_t rtos_sw_timer_start(rtos_sw_timer_t *timer)
     }
     
     if (timer->is_running) {
-        return RTOS_ERROR_ALREADY_EXISTS;
+        return RTOS_ERROR;
     }
     
     /* 设置运行状态 */
     timer->is_running = true;
     timer->remaining_time = timer->period;
-    timer->last_trigger_time = rtos_timer_get_current_time();
+    timer->last_trigger_time = rtos_tickless_get_current_time();
+    
+    /* 创建定时器事件数据 */
+    rtos_timer_event_data_t *event_data = (rtos_timer_event_data_t *)rtos_malloc(sizeof(rtos_timer_event_data_t));
+    if (!event_data) {
+        timer->is_running = false;
+        return RTOS_ERROR_NO_MEMORY;
+    }
+    
+    event_data->timer = timer;
+    event_data->time_event.type = RTOS_TIME_EVENT_TIMER_EXPIRE;
+    event_data->time_event.object = event_data;
+    event_data->time_event.callback = rtos_timer_expired_callback;
+    
+    /* 添加到tickless时间管理器 */
+    rtos_result_t result = rtos_tickless_add_event(&event_data->time_event, timer->period);
+    if (result != RTOS_OK) {
+        rtos_free(event_data);
+        timer->is_running = false;
+        return result;
+    }
     
     /* 插入到定时器链表 */
     rtos_timer_list_insert(timer);
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -139,7 +166,7 @@ rtos_result_t rtos_sw_timer_stop(rtos_sw_timer_t *timer)
     }
     
     if (!timer->is_running) {
-        return RTOS_ERROR_NOT_FOUND;
+        return RTOS_ERROR;
     }
     
     /* 从链表中移除 */
@@ -148,7 +175,7 @@ rtos_result_t rtos_sw_timer_stop(rtos_sw_timer_t *timer)
     /* 清除运行状态 */
     timer->is_running = false;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -168,7 +195,7 @@ rtos_result_t rtos_sw_timer_reset(rtos_sw_timer_t *timer)
         rtos_timer_list_update(timer);
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -193,7 +220,7 @@ rtos_result_t rtos_sw_timer_set_period(rtos_sw_timer_t *timer, rtos_time_ns_t pe
         rtos_timer_list_update(timer);
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -222,7 +249,7 @@ rtos_result_t rtos_sw_timer_set_callback(rtos_sw_timer_t *timer,
     timer->callback = callback;
     timer->parameter = parameter;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -246,7 +273,7 @@ rtos_result_t rtos_sw_timer_get_info(const rtos_sw_timer_t *timer,
     info->trigger_count = timer->trigger_count;
     info->last_trigger_time = timer->last_trigger_time;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -286,55 +313,61 @@ uint32_t rtos_sw_timer_get_trigger_count(const rtos_sw_timer_t *timer)
 }
 
 /**
- * @brief 定时器系统滴答处理函数
- * 此函数需要由系统定时器中断调用
+ * @brief 初始化定时器系统
+ * 使用tickless时间管理器
  */
-void rtos_timer_tick(rtos_time_ns_t tick_period)
+rtos_result_t rtos_timer_system_init(void)
 {
-    rtos_sw_timer_t *timer = g_timer_list;
-    rtos_sw_timer_t *next;
-    
-    while (timer) {
-        next = timer->next;
-        
-        if (timer->is_running) {
-            /* 更新剩余时间 */
-            if (timer->remaining_time > tick_period) {
-                timer->remaining_time -= tick_period;
-            } else {
-                /* 定时器到期 */
-                timer->remaining_time = 0;
-                timer->trigger_count++;
-                
-                /* 调用回调函数 */
-                if (timer->callback) {
-                    timer->callback(timer->parameter);
-                }
-                
-                /* 处理自动重载 */
-                if (timer->auto_reload) {
-                    timer->remaining_time = timer->period;
-                    timer->last_trigger_time = rtos_timer_get_current_time();
-                } else {
-                    /* 停止定时器 */
-                    timer->is_running = false;
-                    rtos_timer_list_remove(timer);
-                }
-            }
-        }
-        
-        timer = next;
-    }
+    /* 初始化tickless时间管理器 */
+    return rtos_tickless_init();
 }
 
 /**
- * @brief 获取当前系统时间
+ * @brief 启动定时器系统
  */
-static rtos_time_ns_t rtos_timer_get_current_time(void)
+rtos_result_t rtos_timer_system_start(void)
 {
-    /* 这里应该调用系统时间函数 */
-    /* 暂时返回0，实际实现中需要集成系统时间 */
-    return 0;
+    /* 启动tickless时间管理器 */
+    return rtos_tickless_start();
+}
+
+/**
+ * @brief 定时器到期回调函数
+ */
+static void rtos_timer_expired_callback(void *parameter)
+{
+    rtos_timer_event_data_t *event_data = (rtos_timer_event_data_t *)parameter;
+    if (!event_data || !event_data->timer) {
+        return;
+    }
+    
+    rtos_sw_timer_t *timer = event_data->timer;
+    
+    /* 更新统计信息 */
+    timer->trigger_count++;
+    timer->last_trigger_time = rtos_tickless_get_current_time();
+    
+    /* 调用用户回调函数 */
+    if (timer->callback) {
+        timer->callback(timer->parameter);
+    }
+    
+    /* 处理自动重载 */
+    if (timer->auto_reload && timer->is_running) {
+        /* 重新添加定时器事件 */
+        rtos_result_t result = rtos_tickless_add_event(&event_data->time_event, timer->period);
+        if (result != RTOS_OK) {
+            /* 添加失败，停止定时器 */
+            timer->is_running = false;
+            rtos_timer_list_remove(timer);
+            rtos_free(event_data);
+        }
+    } else {
+        /* 停止定时器 */
+        timer->is_running = false;
+        rtos_timer_list_remove(timer);
+        rtos_free(event_data);
+    }
 }
 
 /**

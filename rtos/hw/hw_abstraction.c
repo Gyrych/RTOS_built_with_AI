@@ -8,16 +8,18 @@
 #include "hw_abstraction.h"
 #include "../core/types.h"
 #include <string.h>
+#include <stdio.h>
 
 /* 硬件平台信息 */
 static rtos_hw_platform_t g_hw_platform = RTOS_HW_PLATFORM_UNKNOWN;
 static uint32_t g_cpu_count = 1;
 static uint32_t g_system_clock_freq = 0;
 static uint32_t g_cpu_clock_freq = 0;
-static uint32_t g_tick_count = 0;
-static uint64_t g_system_time_ns = 0;
-static uint64_t g_system_time_us = 0;
-static uint64_t g_system_time_ms = 0;
+
+/* 高精度时间管理 - 移除滴答时钟依赖 */
+static rtos_time_ns_t g_system_start_time = 0;
+static rtos_time_ns_t g_hardware_timer_period = 0;
+static volatile bool g_hardware_timer_running = false;
 
 /* 硬件抽象层初始化 */
 rtos_result_t rtos_hw_abstraction_init(void)
@@ -49,7 +51,7 @@ rtos_result_t rtos_hw_abstraction_init(void)
     g_system_clock_freq = 168000000;  /* 168 MHz for STM32F4 */
     g_cpu_clock_freq = g_system_clock_freq;
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -123,22 +125,30 @@ void rtos_hw_delay_ms(uint32_t ms)
 }
 
 /**
- * @brief 获取系统滴答计数
+ * @brief 获取高精度时间戳(纳秒)
  */
-uint32_t rtos_hw_get_tick_count(void)
+rtos_time_ns_t rtos_hw_get_timestamp_ns(void)
 {
-    return g_tick_count;
-}
-
-/**
- * @brief 更新系统滴答计数
- */
-void rtos_hw_tick_update(void)
-{
-    g_tick_count++;
-    g_system_time_ns += 1000000;  /* 假设1ms滴答 */
-    g_system_time_us += 1000;
-    g_system_time_ms += 1;
+    /* 使用系统定时器获取高精度时间戳 */
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        /* ARM Cortex-M系列：使用DWT CYCCNT寄存器 */
+        static uint32_t *DWT_CYCCNT = (uint32_t *)0xE0001004;
+        static uint32_t *DWT_CTRL = (uint32_t *)0xE0001000;
+        static bool dwt_initialized = false;
+        
+        if (!dwt_initialized) {
+            *DWT_CTRL |= 1; /* 使能CYCCNT */
+            dwt_initialized = true;
+        }
+        
+        uint32_t cycles = *DWT_CYCCNT;
+        /* 将时钟周期转换为纳秒 */
+        return g_system_start_time + ((uint64_t)cycles * 1000000000ULL) / g_cpu_clock_freq;
+    #else
+        /* 其他平台：使用软件计数器 */
+        static volatile uint64_t software_counter = 0;
+        return g_system_start_time + software_counter++;
+    #endif
 }
 
 /**
@@ -146,7 +156,7 @@ void rtos_hw_tick_update(void)
  */
 rtos_time_ns_t rtos_hw_get_system_time_ns(void)
 {
-    return g_system_time_ns;
+    return rtos_hw_get_timestamp_ns() - g_system_start_time;
 }
 
 /**
@@ -154,7 +164,7 @@ rtos_time_ns_t rtos_hw_get_system_time_ns(void)
  */
 uint64_t rtos_hw_get_system_time_us(void)
 {
-    return g_system_time_us;
+    return rtos_hw_get_system_time_ns() / 1000ULL;
 }
 
 /**
@@ -162,7 +172,7 @@ uint64_t rtos_hw_get_system_time_us(void)
  */
 uint64_t rtos_hw_get_system_time_ms(void)
 {
-    return g_system_time_ms;
+    return rtos_hw_get_system_time_ns() / 1000000ULL;
 }
 
 /**
@@ -228,7 +238,7 @@ rtos_result_t rtos_hw_set_irq_priority(uint32_t irq_num, rtos_irq_priority_t pri
     (void)priority;
     
     /* 简单实现：总是成功 */
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -250,7 +260,7 @@ rtos_result_t rtos_hw_enable_irq(uint32_t irq_num)
     (void)irq_num;
     
     /* 简单实现：总是成功 */
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -261,7 +271,7 @@ rtos_result_t rtos_hw_disable_irq(uint32_t irq_num)
     (void)irq_num;
     
     /* 简单实现：总是成功 */
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -272,7 +282,7 @@ rtos_result_t rtos_hw_set_vector_table(uint32_t vector_table)
     (void)vector_table;
     
     /* 简单实现：总是成功 */
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -382,7 +392,7 @@ rtos_result_t rtos_hw_get_stack_usage(uint32_t task_id, uint32_t *stack_used, ui
         *stack_free = 512;  /* 512字节 */
     }
     
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -393,7 +403,7 @@ rtos_result_t rtos_hw_watchdog_init(uint32_t timeout_ms)
     (void)timeout_ms;
     
     /* 简单实现：总是成功 */
-    return RTOS_SUCCESS;
+    return RTOS_OK;
 }
 
 /**
@@ -410,6 +420,92 @@ void rtos_hw_watchdog_feed(void)
 void rtos_hw_watchdog_stop(void)
 {
     /* 简单实现：无操作 */
+}
+
+/**
+ * @brief 设置硬件定时器
+ */
+rtos_result_t rtos_hw_set_timer(rtos_time_ns_t timeout_ns)
+{
+    if (timeout_ns == 0) {
+        return RTOS_ERROR_INVALID_PARAM;
+    }
+    
+    /* 停止当前定时器 */
+    rtos_hw_stop_timer();
+    
+    /* 设置新的定时器周期 */
+    g_hardware_timer_period = timeout_ns;
+    g_hardware_timer_running = true;
+    
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        /* STM32F407：使用TIM2作为高精度定时器 */
+        /* 这里需要根据具体硬件配置定时器寄存器 */
+        /* 计算定时器重载值 */
+        uint32_t timer_ticks = (uint32_t)((timeout_ns * g_cpu_clock_freq) / 1000000000ULL);
+        
+        /* 配置定时器（简化实现，实际需要操作寄存器） */
+        /* TIM2->ARR = timer_ticks; */
+        /* TIM2->CR1 |= TIM_CR1_CEN; */
+    #endif
+    
+    return RTOS_OK;
+}
+
+/**
+ * @brief 停止硬件定时器
+ */
+rtos_result_t rtos_hw_stop_timer(void)
+{
+    if (!g_hardware_timer_running) {
+        return RTOS_OK;
+    }
+    
+    g_hardware_timer_running = false;
+    g_hardware_timer_period = 0;
+    
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        /* 停止定时器（简化实现） */
+        /* TIM2->CR1 &= ~TIM_CR1_CEN; */
+    #endif
+    
+    return RTOS_OK;
+}
+
+/**
+ * @brief 获取硬件定时器剩余时间
+ */
+rtos_time_ns_t rtos_hw_get_timer_remaining(void)
+{
+    if (!g_hardware_timer_running) {
+        return 0;
+    }
+    
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        /* 获取定时器当前值（简化实现） */
+        /* uint32_t current_count = TIM2->CNT; */
+        /* uint32_t reload_value = TIM2->ARR; */
+        /* return ((uint64_t)(reload_value - current_count) * 1000000000ULL) / g_cpu_clock_freq; */
+        
+        /* 简化实现：返回设置的周期 */
+        return g_hardware_timer_period;
+    #else
+        return g_hardware_timer_period;
+    #endif
+}
+
+/**
+ * @brief 硬件定时器中断处理函数
+ */
+void rtos_hw_timer_interrupt_handler(void)
+{
+    if (g_hardware_timer_running) {
+        g_hardware_timer_running = false;
+        
+        /* 触发调度器 */
+        extern void rtos_scheduler_schedule(void);
+        rtos_scheduler_schedule();
+    }
 }
 
 /**
@@ -462,14 +558,14 @@ uint32_t rtos_hw_get_info_string(char *buffer, uint32_t size)
                        "CPU Count: %u\n"
                        "System Clock: %u Hz\n"
                        "CPU Clock: %u Hz\n"
-                       "Tick Count: %u\n"
-                       "System Time: %llu ms",
+                       "Timer Running: %s\n"
+                       "System Time: %lu ms",
                        platform_name,
                        g_cpu_count,
                        g_system_clock_freq,
                        g_cpu_clock_freq,
-                       g_tick_count,
-                       g_system_time_ms);
+                       g_hardware_timer_running ? "Yes" : "No",
+                       (unsigned long)rtos_hw_get_system_time_ms());
     
     if (len < 0) {
         len = 0;
