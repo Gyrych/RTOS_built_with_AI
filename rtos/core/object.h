@@ -20,6 +20,12 @@ struct rtos_event_group;
 struct rtos_sw_timer;
 struct rtos_memory_pool;
 
+/* 对象统计信息结构体 - 新增 */
+typedef struct {
+    uint32_t total_objects;                    /* 总对象数量 */
+    uint32_t type_counts[RTOS_OBJECT_TYPE_DEVICE + 1]; /* 各类型对象数量 */
+} rtos_object_stats_t;
+
 /* 对象基类结构体 */
 typedef struct rtos_object {
     char                    name[16];           /* 对象名称 */
@@ -39,6 +45,26 @@ typedef struct {
     rtos_object_t          *first;             /* 第一个对象 */
     rtos_object_t          *last;              /* 最后一个对象 */
 } rtos_object_information_t;
+
+/* 系统时钟管理函数 - 新增 */
+
+/**
+ * @brief 设置系统时钟频率
+ * @param freq_hz 时钟频率（Hz）
+ */
+void rtos_object_set_system_clock_freq(uint32_t freq_hz);
+
+/**
+ * @brief 获取系统时钟频率
+ * @return 时钟频率（Hz）
+ */
+uint32_t rtos_object_get_system_clock_freq(void);
+
+/**
+ * @brief 获取当前系统时间戳（纳秒）
+ * @return 当前时间戳
+ */
+rtos_time_ns_t rtos_object_get_current_timestamp(void);
 
 /* 对象操作函数声明 */
 
@@ -110,6 +136,20 @@ bool rtos_object_is_dynamic(const rtos_object_t *object);
  */
 bool rtos_object_is_system(const rtos_object_t *object);
 
+/**
+ * @brief 获取对象创建时间
+ * @param object 对象指针
+ * @return 创建时间（纳秒）
+ */
+rtos_time_ns_t rtos_object_get_create_time(const rtos_object_t *object);
+
+/**
+ * @brief 获取对象年龄（从创建到现在的纳秒数）
+ * @param object 对象指针
+ * @return 对象年龄（纳秒）
+ */
+rtos_time_ns_t rtos_object_get_age(const rtos_object_t *object);
+
 /* 引用计数管理 - 新增 */
 
 /**
@@ -132,6 +172,13 @@ uint32_t rtos_object_ref_dec(rtos_object_t *object);
  * @return 引用计数
  */
 uint32_t rtos_object_get_ref_count(const rtos_object_t *object);
+
+/**
+ * @brief 检查对象是否可销毁（引用计数为0）
+ * @param object 对象指针
+ * @return 是否可销毁
+ */
+bool rtos_object_can_destroy(const rtos_object_t *object);
 
 /* 对象容器管理函数 */
 
@@ -180,6 +227,20 @@ rtos_object_t *rtos_object_container_find(const rtos_object_information_t *info,
 uint32_t rtos_object_container_get_count(const rtos_object_information_t *info);
 
 /**
+ * @brief 获取容器最大容量
+ * @param info 容器信息指针
+ * @return 最大容量
+ */
+uint32_t rtos_object_container_get_max_count(const rtos_object_information_t *info);
+
+/**
+ * @brief 检查容器是否已满
+ * @param info 容器信息指针
+ * @return 是否已满
+ */
+bool rtos_object_container_is_full(const rtos_object_information_t *info);
+
+/**
  * @brief 遍历容器中的对象
  * @param info 容器信息指针
  * @param callback 回调函数
@@ -188,6 +249,13 @@ uint32_t rtos_object_container_get_count(const rtos_object_information_t *info);
 void rtos_object_container_traverse(const rtos_object_information_t *info,
                                    void (*callback)(rtos_object_t *object, void *arg),
                                    void *arg);
+
+/**
+ * @brief 清空容器中的所有对象
+ * @param info 容器信息指针
+ * @return 操作结果
+ */
+rtos_result_t rtos_object_container_clear(rtos_object_information_t *info);
 
 /* 等待队列管理 - 新增统一等待队列设计 */
 
@@ -207,6 +275,21 @@ void rtos_wait_queue_init(rtos_wait_node_t *head);
 rtos_result_t rtos_wait_queue_add(rtos_wait_node_t *head,
                                   struct rtos_task *task,
                                   rtos_timeout_t timeout);
+
+/**
+ * @brief 添加任务到等待队列（带数据）
+ * @param head 队列头指针
+ * @param task 任务指针
+ * @param timeout 超时时间
+ * @param data 等待数据
+ * @param flags 等待标志
+ * @return 操作结果
+ */
+rtos_result_t rtos_wait_queue_add_with_data(rtos_wait_node_t *head,
+                                            struct rtos_task *task,
+                                            rtos_timeout_t timeout,
+                                            void *data,
+                                            rtos_wait_flag_t flags);
 
 /**
  * @brief 从等待队列移除任务
@@ -239,6 +322,13 @@ bool rtos_wait_queue_is_empty(const rtos_wait_node_t *head);
 uint32_t rtos_wait_queue_get_length(const rtos_wait_node_t *head);
 
 /**
+ * @brief 清空等待队列
+ * @param head 队列头指针
+ * @return 操作结果
+ */
+rtos_result_t rtos_wait_queue_clear(rtos_wait_node_t *head);
+
+/**
  * @brief 初始化等待节点
  * @param node 等待节点指针
  * @param task 任务指针
@@ -269,11 +359,33 @@ void *rtos_wait_node_get_data(const rtos_wait_node_t *node);
 rtos_wait_flag_t rtos_wait_node_get_flags(const rtos_wait_node_t *node);
 
 /**
+ * @brief 设置等待节点数据
+ * @param node 等待节点指针
+ * @param data 新数据
+ */
+void rtos_wait_node_set_data(rtos_wait_node_t *node, void *data);
+
+/**
+ * @brief 设置等待节点标志
+ * @param node 等待节点指针
+ * @param flags 新标志
+ */
+void rtos_wait_node_set_flags(rtos_wait_node_t *node, rtos_wait_flag_t flags);
+
+/**
  * @brief 唤醒所有等待的任务
  * @param head 队列头指针
  * @param result 唤醒结果
  */
 void rtos_wait_queue_wake_all(rtos_wait_node_t *head, rtos_result_t result);
+
+/**
+ * @brief 唤醒指定任务
+ * @param head 队列头指针
+ * @param task 要唤醒的任务
+ * @return 操作结果
+ */
+rtos_result_t rtos_wait_queue_wake_task(rtos_wait_node_t *head, struct rtos_task *task);
 
 /**
  * @brief 等待节点等待
@@ -282,6 +394,13 @@ void rtos_wait_queue_wake_all(rtos_wait_node_t *head, rtos_result_t result);
  * @return 等待结果
  */
 rtos_result_t rtos_wait_node_wait(rtos_wait_node_t *node, rtos_timeout_t timeout);
+
+/**
+ * @brief 检查等待节点是否超时
+ * @param node 等待节点指针
+ * @return 是否超时
+ */
+bool rtos_wait_node_is_timeout(const rtos_wait_node_t *node);
 
 /* 对象系统管理函数 */
 
@@ -296,6 +415,32 @@ void rtos_object_system_init(void);
  * @return 容器指针
  */
 rtos_object_information_t *rtos_object_get_container(rtos_object_type_t type);
+
+/**
+ * @brief 获取全局对象链表头
+ * @return 链表头指针
+ */
+rtos_object_t *rtos_object_get_list_head(void);
+
+/**
+ * @brief 获取全局对象数量
+ * @return 对象总数
+ */
+uint32_t rtos_object_get_total_count(void);
+
+/**
+ * @brief 销毁对象
+ * @param object 对象指针
+ * @return 操作结果
+ */
+rtos_result_t rtos_object_destroy(rtos_object_t *object);
+
+/**
+ * @brief 获取对象统计信息
+ * @param stats 统计信息结构体指针
+ * @return 操作结果
+ */
+rtos_result_t rtos_object_get_statistics(rtos_object_stats_t *stats);
 
 /* 链表操作宏 - 优化版本 */
 #define rtos_list_entry(ptr, type, member) \
