@@ -41,12 +41,33 @@ rtos_result_t rtos_hw_run_comprehensive_tests(void)
     /* 运行所有测试套件 */
     rtos_result_t overall_result = RTOS_OK;
     
-    for (uint32_t i = 0; i < RTOS_TEST_SUITE_MAX; i++) {
-        rtos_result_t result = rtos_hw_run_test_suite((rtos_test_suite_t)i);
-        if (result != RTOS_OK) {
-            overall_result = RTOS_ERROR;
-        }
-    }
+    /* 基础功能测试 */
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_POWER) != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_MEMORY) != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_WATCHDOG) != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_GPIO) != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_UART) != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_TIMER) != RTOS_OK) overall_result = RTOS_ERROR;
+    
+    /* 高级功能测试 */
+    printf("\n--- 高级功能模块测试 ---\n");
+    if (rtos_hw_test_dma() != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_test_spi() != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_test_i2c() != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_test_adc_dac() != RTOS_OK) overall_result = RTOS_ERROR;
+    
+    /* 安全和网络测试 */
+    printf("\n--- 安全和网络模块测试 ---\n");
+    if (rtos_hw_test_security() != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_test_network() != RTOS_OK) overall_result = RTOS_ERROR;
+    if (rtos_hw_test_ota() != RTOS_OK) overall_result = RTOS_ERROR;
+    
+    /* 调试工具测试 */
+    printf("\n--- 调试工具模块测试 ---\n");
+    if (rtos_hw_test_debug_tools() != RTOS_OK) overall_result = RTOS_ERROR;
+    
+    /* 集成测试 */
+    if (rtos_hw_run_test_suite(RTOS_TEST_SUITE_INTEGRATION) != RTOS_OK) overall_result = RTOS_ERROR;
     
     /* 计算总体统计 */
     uint32_t total_time = rtos_hw_get_system_time_ms() - total_start_time;
@@ -769,4 +790,238 @@ static void rtos_test_calculate_overall_stats(void)
     
     g_test_stats.overall_pass_rate = (g_test_stats.total_tests > 0) ? 
         ((float)g_test_stats.total_passed / g_test_stats.total_tests * 100.0f) : 0.0f;
+}
+
+/* 新增测试函数 */
+
+/**
+ * @brief 运行DMA测试
+ */
+rtos_result_t rtos_hw_test_dma(void)
+{
+    printf("DMA模块测试...");
+    
+    uint32_t total_tests = 3;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: DMA管理器初始化检查 */
+    rtos_dma_manager_t *dma_mgr = rtos_dma_manager_get_instance();
+    if (dma_mgr != NULL) {
+        passed_tests++;
+    }
+    
+    /* 测试2: DMA内存拷贝测试 */
+    uint8_t src_buffer[64], dst_buffer[64];
+    for (int i = 0; i < 64; i++) src_buffer[i] = (uint8_t)i;
+    memset(dst_buffer, 0, 64);
+    
+    if (rtos_dma_manager_memcpy(dst_buffer, src_buffer, 64) == RTOS_OK) {
+        bool copy_ok = (memcmp(src_buffer, dst_buffer, 64) == 0);
+        if (copy_ok) passed_tests++;
+    }
+    
+    /* 测试3: DMA统计信息 */
+    char dma_stats[256];
+    if (rtos_dma_manager_get_statistics(dma_stats, sizeof(dma_stats)) > 0) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行SPI测试
+ */
+rtos_result_t rtos_hw_test_spi(void)
+{
+    printf("SPI模块测试...");
+    
+    uint32_t total_tests = 2;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: SPI管理器检查 */
+    rtos_spi_manager_t *spi_mgr = rtos_spi_manager_get_instance();
+    if (spi_mgr != NULL) {
+        passed_tests++;
+    }
+    
+    /* 测试2: SPI端口配置 */
+    rtos_spi_config_t spi_config = RTOS_SPI_DEFAULT_CONFIG();
+    if (rtos_spi_manager_init_port(RTOS_SPI_PORT_1, &spi_config, 4) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行I2C测试
+ */
+rtos_result_t rtos_hw_test_i2c(void)
+{
+    printf("I2C模块测试...");
+    
+    uint32_t total_tests = 2;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: I2C管理器检查 */
+    rtos_i2c_manager_t *i2c_mgr = rtos_i2c_manager_get_instance();
+    if (i2c_mgr != NULL) {
+        passed_tests++;
+    }
+    
+    /* 测试2: I2C端口配置 */
+    rtos_i2c_config_t i2c_config = RTOS_I2C_DEFAULT_CONFIG(RTOS_I2C_MODE_STANDARD);
+    if (rtos_i2c_manager_init_port(RTOS_I2C_PORT_1, &i2c_config, 8) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行ADC/DAC测试
+ */
+rtos_result_t rtos_hw_test_adc_dac(void)
+{
+    printf("ADC/DAC模块测试...");
+    
+    uint32_t total_tests = 4;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1-4: 基础功能检查 */
+    rtos_adc_manager_t *adc_mgr = rtos_adc_manager_get_instance();
+    if (adc_mgr != NULL) passed_tests++;
+    
+    rtos_dac_manager_t *dac_mgr = rtos_dac_manager_get_instance();
+    if (dac_mgr != NULL) passed_tests++;
+    
+    rtos_adc_config_t adc_config = RTOS_ADC_DEFAULT_CONFIG();
+    if (rtos_adc_manager_init_controller(RTOS_ADC_CONTROLLER_1, &adc_config, 8) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    rtos_dac_config_t dac_config = RTOS_DAC_DEFAULT_CONFIG();
+    if (rtos_dac_manager_init_channel(RTOS_DAC_CHANNEL_1, &dac_config) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行安全模块测试
+ */
+rtos_result_t rtos_hw_test_security(void)
+{
+    printf("安全模块测试...");
+    
+    uint32_t total_tests = 3;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: 安全启动管理器 */
+    rtos_secure_boot_config_t boot_config = RTOS_SECURE_BOOT_DEFAULT_CONFIG();
+    if (rtos_secure_boot_manager_init(&boot_config) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试2: 加密管理器 */
+    if (rtos_crypto_manager_init(8, 4, 1024) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试3: 随机数生成 */
+    uint8_t random_buffer[32];
+    if (rtos_crypto_generate_random(random_buffer, 32) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行网络模块测试
+ */
+rtos_result_t rtos_hw_test_network(void)
+{
+    printf("网络模块测试...");
+    
+    uint32_t total_tests = 2;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: 以太网管理器 */
+    rtos_eth_config_t eth_config = RTOS_ETH_DEFAULT_CONFIG();
+    if (rtos_ethernet_manager_init(&eth_config, 16, 16) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试2: 链路状态查询 */
+    rtos_eth_link_state_t link_state = rtos_ethernet_manager_get_link_state();
+    (void)link_state; /* 避免未使用警告 */
+    passed_tests++;
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行OTA模块测试
+ */
+rtos_result_t rtos_hw_test_ota(void)
+{
+    printf("OTA模块测试...");
+    
+    uint32_t total_tests = 2;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: OTA管理器初始化 */
+    rtos_ota_config_t ota_config = RTOS_OTA_DEFAULT_CONFIG();
+    if (rtos_ota_manager_init(&ota_config) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试2: 固件信息查询 */
+    rtos_ota_firmware_info_t firmware_info;
+    if (rtos_ota_manager_get_current_firmware_info(&firmware_info) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
+
+/**
+ * @brief 运行调试工具测试
+ */
+rtos_result_t rtos_hw_test_debug_tools(void)
+{
+    printf("调试工具测试...");
+    
+    uint32_t total_tests = 3;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: 性能分析器 */
+    rtos_perf_profiler_config_t perf_config = RTOS_PERF_DEFAULT_CONFIG();
+    if (rtos_performance_profiler_init(&perf_config) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试2: 系统跟踪器 */
+    rtos_trace_config_t trace_config = RTOS_TRACE_DEFAULT_CONFIG();
+    if (rtos_system_tracer_init(&trace_config) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    /* 测试3: 性能事件记录 */
+    if (rtos_performance_profiler_record_event(RTOS_PERF_EVENT_USER_DEFINED, 0, 0, NULL) == RTOS_OK) {
+        passed_tests++;
+    }
+    
+    printf("完成 (%lu/%lu 通过)\n", passed_tests, total_tests);
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
 }

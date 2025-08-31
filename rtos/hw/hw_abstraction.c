@@ -101,6 +101,51 @@ rtos_result_t rtos_hw_abstraction_init(void)
         return RTOS_ERROR;
     }
     
+    /* 初始化DMA管理器 */
+    if (rtos_dma_manager_init(32) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("DMA manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化SPI管理器 */
+    if (rtos_spi_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("SPI manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化I2C管理器 */
+    if (rtos_i2c_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("I2C manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化ADC管理器 */
+    if (rtos_adc_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("ADC manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化DAC管理器 */
+    if (rtos_dac_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("DAC manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化性能分析器 */
+    rtos_perf_profiler_config_t perf_config = RTOS_PERF_DEFAULT_CONFIG();
+    if (rtos_performance_profiler_init(&perf_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Performance profiler init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    
+    /* 初始化系统跟踪器 */
+    rtos_trace_config_t trace_config = RTOS_TRACE_DEFAULT_CONFIG();
+    if (rtos_system_tracer_init(&trace_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("System tracer init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    
+    RTOS_HW_DEBUG_PRINT("Hardware abstraction layer fully initialized");
     return RTOS_OK;
 }
 

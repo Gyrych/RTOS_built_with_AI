@@ -101,6 +101,54 @@ rtos_result_t rtos_hw_test_uart(void);
 rtos_result_t rtos_hw_test_integration(void);
 
 /**
+ * @brief 运行DMA测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_dma(void);
+
+/**
+ * @brief 运行SPI测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_spi(void);
+
+/**
+ * @brief 运行I2C测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_i2c(void);
+
+/**
+ * @brief 运行ADC/DAC测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_adc_dac(void);
+
+/**
+ * @brief 运行安全模块测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_security(void);
+
+/**
+ * @brief 运行网络模块测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_network(void);
+
+/**
+ * @brief 运行OTA模块测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_ota(void);
+
+/**
+ * @brief 运行调试工具测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_debug_tools(void);
+
+/**
  * @brief 获取综合测试统计信息
  * @return 测试统计结构指针
  */

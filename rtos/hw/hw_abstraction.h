@@ -16,6 +16,24 @@
 #include "watchdog_manager.h"
 #include "gpio_abstraction.h"
 #include "uart_abstraction.h"
+#include "dma_abstraction.h"
+#include "spi_abstraction.h"
+#include "i2c_abstraction.h"
+#include "adc_abstraction.h"
+#include "dac_abstraction.h"
+
+/* 包含安全和网络模块 */
+#include "security/secure_boot.h"
+#include "security/crypto_abstraction.h"
+#include "network/ethernet_abstraction.h"
+#include "ota/ota_manager.h"
+
+/* 包含调试和工具模块 */
+#include "debug/performance_profiler.h"
+#include "debug/system_tracer.h"
+
+/* 包含平台支持 */
+#include "platforms/platform_config.h"
 
 /* 硬件平台类型定义 */
 typedef enum {
