@@ -1,0 +1,12 @@
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_port.c
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rthw.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\finsh_port.o: .\User\config\rt-thread_nano\oscfg\rtconfig.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\finsh_port.o: .\User\config\rt-thread_nano\oscfg\osal_config.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdebug.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdef.h
+.\objects\finsh_port.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtservice.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_api.h
+.\objects\finsh_port.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_config.h

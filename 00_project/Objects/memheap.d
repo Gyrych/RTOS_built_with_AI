@@ -1,0 +1,12 @@
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\src\memheap.c
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rthw.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\memheap.o: .\User\config\rt-thread_nano\oscfg\rtconfig.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\memheap.o: .\User\config\rt-thread_nano\oscfg\osal_config.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdebug.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdef.h
+.\objects\memheap.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtservice.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_api.h
+.\objects\memheap.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_config.h

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"osal.h": "c",
+			"drv_heat.h": "c"
+		}
+	}
+}

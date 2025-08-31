@@ -1,0 +1,81 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: ¦ÌVision V5.37.0.0
+Copyright (C) 2022 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: Ran Yucheng, maccura, LIC=9WSKC-73WHJ-DYUV3-AZ3ZM-CULX9-674GA
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Plus  Version: 5.37.0.0
+Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.06 update 4 (build 422)
+Assembler:       Armasm.exe V5.06 update 4 (build 422)
+Linker/Locator:  ArmLink.exe V5.06 update 4 (build 422)
+Library Manager: ArmAr.exe V5.06 update 4 (build 422)
+Hex Converter:   FromElf.exe V5.06 update 4 (build 422)
+CPU DLL:         SARMCM3.DLL V5.37.0.0
+Dialog DLL:      DCM.DLL V1.17.5.0
+Target DLL:      Segger\JL2CM3.dll V2.99.42.0
+Dialog DLL:      TCM.DLL V1.56.1.0
+ 
+<h2>Project:</h2>
+E:\NewWorkplace\Platform\00_project\00_template\01_stm32f4_rt-thread-nano_c\template_stm32f4_rt-thread_c.uvprojx
+Project File Date:  12/21/2024
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.06 update 4 (build 422)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
+Build target 'template_stm32f4_rt-thread-nano_c'
+compiling sys_tasks.c...
+..\..\..\06_sys\01_command_dispatcher\sys_tasks\sys_tasks.c(65): warning:  #177-D: variable "err"  was declared but never referenced
+      static uint8_t err = true;
+..\..\..\06_sys\01_command_dispatcher\sys_tasks\sys_tasks.c: 1 warning, 0 errors
+compiling osal.c...
+..\..\..\04_osal\01_rt-thread-nano\osal.c(394): warning:  #177-D: variable "datas"  was declared but never referenced
+  	uint8_t datas[100] = {0}, i = 0, j = 0, len = strlen(str);
+..\..\..\04_osal\01_rt-thread-nano\osal.c(394): warning:  #177-D: variable "i"  was declared but never referenced
+  	uint8_t datas[100] = {0}, i = 0, j = 0, len = strlen(str);
+..\..\..\04_osal\01_rt-thread-nano\osal.c(394): warning:  #177-D: variable "j"  was declared but never referenced
+  	uint8_t datas[100] = {0}, i = 0, j = 0, len = strlen(str);
+..\..\..\04_osal\01_rt-thread-nano\osal.c: 3 warnings, 0 errors
+compiling func_3.c...
+compiling func_common.c...
+compiling func_2.c...
+compiling drv_can_interface.c...
+compiling func_1.c...
+compiling drv_motion_control_components.c...
+..\..\..\05_drv\drv_motion_control_components\drv_motion_control_components.c(1552): warning:  #177-D: variable "temp"  was declared but never referenced
+      int32_t temp = 0;
+..\..\..\05_drv\drv_motion_control_components\drv_motion_control_components.c: 1 warning, 0 errors
+compiling main.c...
+compiling func_4.c...
+linking...
+Program Size: Code=72204 RO-data=2588 RW-data=3760 ZI-data=110624  
+".\Objects\template_stm32f4_rt-thread_c.axf" - 0 Error(s), 5 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: ARM
+                http://www.keil.com/pack/ARM.CMSIS.5.9.0.pack
+                ARM.CMSIS.5.9.0
+                CMSIS (Common Microcontroller Software Interface Standard)
+   * Component: CORE Version: 5.6.0
+
+Package Vendor: Keil
+                http://www.keil.com/pack/Keil.STM32F4xx_DFP.2.16.0.pack
+                Keil.STM32F4xx_DFP.2.16.0
+                STMicroelectronics STM32F4 Series Device Support, Drivers and Examples
+
+<h2>Collection of Component include folders:</h2>
+  ./RTE/_template_stm32f4_rt-thread-nano_c
+  C:/Keil_v5/ARM/PACK/ARM/CMSIS/5.9.0/CMSIS/Core/Include
+  C:/Keil_v5/ARM/PACK/Keil/STM32F4xx_DFP/2.16.0/Drivers/CMSIS/Device/ST/STM32F4xx/Include
+
+<h2>Collection of Component Files used:</h2>
+
+   * Component: ARM::CMSIS:CORE:5.6.0
+Build Time Elapsed:  00:00:09
+</pre>
+</body>
+</html>

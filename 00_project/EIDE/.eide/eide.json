@@ -1,0 +1,301 @@
+{
+  "name": "template_stm32f4_rt-thread_c",
+  "type": "ARM",
+  "dependenceList": [],
+  "srcDirs": [],
+  "virtualFolder": {
+    "name": "<virtual_root>",
+    "files": [],
+    "folders": [
+      {
+        "name": "fwlib",
+        "files": [
+          {
+            "path": "../../01_fwlib/src/misc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_adc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_can.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_cec.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_crc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_cryp.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_cryp_aes.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_cryp_des.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_cryp_tdes.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dac.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dbgmcu.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dcmi.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dfsdm.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dma.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dma2d.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_dsi.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_exti.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_flash.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_flash_ramfunc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_fmpi2c.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_fsmc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_gpio.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_hash.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_hash_md5.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_hash_sha1.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_i2c.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_iwdg.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_lptim.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_ltdc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_pwr.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_qspi.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_rcc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_rng.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_rtc.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_sai.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_sdio.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_spdifrx.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_spi.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_syscfg.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_tim.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_usart.c"
+          },
+          {
+            "path": "../../01_fwlib/src/stm32f4xx_wwdg.c"
+          }
+        ],
+        "folders": []
+      },
+      {
+        "name": "rtos",
+        "files": [],
+        "folders": []
+      },
+      {
+        "name": "user",
+        "files": [
+          {
+            "path": "../User/main.c"
+          }
+        ],
+        "folders": [
+          {
+            "name": "config",
+            "files": [
+              {
+                "path": "../User/config/stm32f4/core/stm32f4xx_it.c"
+              },
+              {
+                "path": "../User/config/stm32f4/core/system_stm32f4xx.c"
+              },
+              {
+                "path": "../User/config/stm32f4/config/stm32f4xx_conf.h"
+              },
+              {
+                "path": "../User/config/stm32f4/core/gcc/startup_stm32f40xx.s"
+              }
+            ],
+            "folders": []
+          }
+        ]
+      }
+    ]
+  },
+  "outDir": "build",
+  "deviceName": null,
+  "packDir": ".pack/Keil/STM32F4xx_DFP.2.16.0",
+  "miscInfo": {
+    "uid": "7f1b9876b75751b0278e3ab51f7810dd"
+  },
+  "targets": {
+    "template_stm32f4_rt-thread-nano_c": {
+      "excludeList": [
+        "<virtual_root>/drv",
+        "<virtual_root>/hal (基于 stm32f4标准库 V1.8.0)",
+        "<virtual_root>/osal (基于 rt-thread-nano V3.1.5)",
+        "<virtual_root>/sys"
+      ],
+      "toolchain": "GCC",
+      "compileConfig": {
+        "cpuType": "Cortex-M4",
+        "archExtensions": "",
+        "floatingPointHardware": "single",
+        "scatterFilePath": "STM32F407VGTx_FLASH.ld",
+        "useCustomScatterFile": true,
+        "storageLayout": {
+          "RAM": [],
+          "ROM": []
+        },
+        "options": "null"
+      },
+      "uploader": "STLink",
+      "uploadConfig": {
+        "bin": "",
+        "proType": "SWD",
+        "resetMode": "default",
+        "runAfterProgram": true,
+        "speed": 4000,
+        "address": "0x08000000",
+        "elFile": "None",
+        "optionBytes": ".eide/template_stm32f4_rt-thread-nano_c.st.option.bytes.ini",
+        "otherCmds": ""
+      },
+      "uploadConfigMap": {
+        "JLink": {
+          "bin": "",
+          "baseAddr": "",
+          "cpuInfo": {
+            "vendor": "ST",
+            "cpuName": "STM32F407ZG"
+          },
+          "proType": 1,
+          "speed": 8000,
+          "otherCmds": ""
+        }
+      },
+      "custom_dep": {
+        "name": "default",
+        "incList": [
+          ".",
+          "../../01_fwlib/inc",
+          "../User",
+          "../User/config/stm32f4/config",
+          "../User/config/stm32f4/core",
+          ".cmsis/include"
+        ],
+        "libList": [],
+        "defineList": [
+          "STM32F40_41xxx",
+          "USE_STDPERIPH_DRIVER"
+        ]
+      },
+      "builderOptions": {
+        "AC5": {
+          "version": 4,
+          "beforeBuildTasks": [],
+          "afterBuildTasks": [],
+          "global": {
+            "output-debug-info": "enable"
+          },
+          "c/cpp-compiler": {
+            "optimization": "level-0",
+            "one-elf-section-per-function": true,
+            "c99-mode": true,
+            "C_FLAGS": "--diag_suppress=1 --diag_suppress=1295",
+            "CXX_FLAGS": "--diag_suppress=1 --diag_suppress=1295",
+            "warnings": "all-warnings"
+          },
+          "asm-compiler": {},
+          "linker": {
+            "output-format": "elf",
+            "ro-base": "0x08000000",
+            "rw-base": "0x20000000",
+            "misc-controls": "--info stack"
+          }
+        },
+        "GCC": {
+          "version": 5,
+          "beforeBuildTasks": [],
+          "afterBuildTasks": [],
+          "global": {
+            "$float-abi-type": "hard",
+            "output-debug-info": "enable",
+            "misc-control": "--specs=nosys.specs --specs=nano.specs"
+          },
+          "c/cpp-compiler": {
+            "language-c": "c11",
+            "language-cpp": "c++11",
+            "optimization": "level-debug",
+            "warnings": "no-warnings",
+            "one-elf-section-per-function": true,
+            "one-elf-section-per-data": true
+          },
+          "asm-compiler": {
+            "ASM_FLAGS": "-Wa,-mimplicit-it=thumb"
+          },
+          "linker": {
+            "output-format": "elf",
+            "remove-unused-input-sections": true,
+            "LIB_FLAGS": "-lm",
+            "$toolName": "auto",
+            "LD_FLAGS": "-Wl,--wrap,USART3_IRQHandler"
+          }
+        }
+      }
+    }
+  },
+  "version": "3.6"
+}

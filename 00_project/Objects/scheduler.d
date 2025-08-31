@@ -1,0 +1,12 @@
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\src\scheduler.c
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\scheduler.o: .\User\config\rt-thread_nano\oscfg\rtconfig.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtthread.h
+.\objects\scheduler.o: .\User\config\rt-thread_nano\oscfg\osal_config.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdebug.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtdef.h
+.\objects\scheduler.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rtservice.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_api.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\finsh\finsh_config.h
+.\objects\scheduler.o: ..\..\..\02_rtos\01_rt_thread_nano\V3.1.5\include\rthw.h
