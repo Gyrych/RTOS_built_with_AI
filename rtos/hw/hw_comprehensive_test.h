@@ -95,6 +95,12 @@ rtos_result_t rtos_hw_test_gpio(void);
 rtos_result_t rtos_hw_test_uart(void);
 
 /**
+ * @brief 运行定时器测试
+ * @return 测试结果
+ */
+rtos_result_t rtos_hw_test_timer(void);
+
+/**
  * @brief 运行集成测试
  * @return 测试结果
  */

@@ -100,12 +100,36 @@
 #define RTOS_DMA_DEBUG                 1           /* 启用DMA调试 */
 #define RTOS_DMA_ERROR_CHECK           1           /* 启用DMA错误检查 */
 
+/* 新增模块调试配置 */
+#define RTOS_SPI_DEBUG                 1           /* 启用SPI调试 */
+#define RTOS_SPI_ERROR_CHECK           1           /* 启用SPI错误检查 */
+#define RTOS_I2C_DEBUG                 1           /* 启用I2C调试 */
+#define RTOS_I2C_ERROR_CHECK           1           /* 启用I2C错误检查 */
+#define RTOS_ADC_DEBUG                 1           /* 启用ADC调试 */
+#define RTOS_ADC_ERROR_CHECK           1           /* 启用ADC错误检查 */
+#define RTOS_DAC_DEBUG                 1           /* 启用DAC调试 */
+#define RTOS_DAC_ERROR_CHECK           1           /* 启用DAC错误检查 */
+#define RTOS_SECURE_BOOT_DEBUG         1           /* 启用安全启动调试 */
+#define RTOS_CRYPTO_DEBUG              1           /* 启用加密调试 */
+#define RTOS_ETH_DEBUG                 1           /* 启用以太网调试 */
+#define RTOS_OTA_DEBUG                 1           /* 启用OTA调试 */
+#define RTOS_PERF_DEBUG                1           /* 启用性能分析调试 */
+#define RTOS_TRACER_DEBUG              1           /* 启用跟踪调试 */
+
 /* 模块使能配置 */
 #define RTOS_HW_ENABLE_POWER_MGMT      1           /* 启用电源管理模块 */
 #define RTOS_HW_ENABLE_MEMORY_MONITOR  1           /* 启用内存监控模块 */
 #define RTOS_HW_ENABLE_WATCHDOG        1           /* 启用看门狗模块 */
 #define RTOS_HW_ENABLE_GPIO            1           /* 启用GPIO模块 */
 #define RTOS_HW_ENABLE_UART            1           /* 启用UART模块 */
+#define RTOS_HW_ENABLE_SPI             1           /* 启用SPI模块 */
+#define RTOS_HW_ENABLE_I2C             1           /* 启用I2C模块 */
+#define RTOS_HW_ENABLE_ADC             1           /* 启用ADC模块 */
+#define RTOS_HW_ENABLE_DAC             1           /* 启用DAC模块 */
 #define RTOS_HW_ENABLE_DMA             1           /* 启用DMA模块 */
+#define RTOS_HW_ENABLE_SECURITY        1           /* 启用安全模块 */
+#define RTOS_HW_ENABLE_NETWORK         1           /* 启用网络模块 */
+#define RTOS_HW_ENABLE_OTA             1           /* 启用OTA模块 */
+#define RTOS_HW_ENABLE_DEBUG_TOOLS     1           /* 启用调试工具 */
 
 #endif /* __RTOS_HW_CONFIG_H__ */

@@ -148,7 +148,7 @@ rtos_memory_monitor_t* rtos_memory_monitor_get_instance(void)
 /**
  * @brief 获取内存使用统计
  */
-rtos_result_t rtos_memory_monitor_get_stats(rtos_memory_stats_t *stats)
+rtos_result_t rtos_memory_monitor_get_stats(rtos_memory_monitor_stats_t *stats)
 {
     RTOS_MEMORY_CHECK_PARAM(stats != NULL);
     RTOS_MEMORY_CHECK_INIT();
@@ -526,7 +526,7 @@ uint32_t rtos_memory_monitor_get_statistics(char *buffer, uint32_t size)
         return 0;
     }
     
-    rtos_memory_stats_t stats;
+    rtos_memory_monitor_stats_t stats;
     rtos_memory_monitor_get_stats(&stats);
     
     int len = snprintf(buffer, size,

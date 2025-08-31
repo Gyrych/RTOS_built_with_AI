@@ -34,20 +34,20 @@ typedef enum {
     RTOS_SIGNATURE_ALG_MAX
 } rtos_signature_algorithm_t;
 
-/* 哈希算法定义 */
+/* 安全启动哈希算法定义 */
 typedef enum {
-    RTOS_HASH_ALG_SHA256 = 0,           /**< SHA-256 */
-    RTOS_HASH_ALG_SHA384,               /**< SHA-384 */
-    RTOS_HASH_ALG_SHA512,               /**< SHA-512 */
-    RTOS_HASH_ALG_SHA3_256,             /**< SHA3-256 */
-    RTOS_HASH_ALG_MAX
-} rtos_hash_algorithm_t;
+    RTOS_SECURE_HASH_ALG_SHA256 = 0,    /**< SHA-256 */
+    RTOS_SECURE_HASH_ALG_SHA384,        /**< SHA-384 */
+    RTOS_SECURE_HASH_ALG_SHA512,        /**< SHA-512 */
+    RTOS_SECURE_HASH_ALG_SHA3_256,      /**< SHA3-256 */
+    RTOS_SECURE_HASH_ALG_MAX
+} rtos_secure_hash_algorithm_t;
 
 /* 安全启动配置 */
 typedef struct {
     bool enabled;                       /**< 是否启用安全启动 */
     rtos_signature_algorithm_t sig_alg; /**< 签名算法 */
-    rtos_hash_algorithm_t hash_alg;     /**< 哈希算法 */
+    rtos_secure_hash_algorithm_t hash_alg; /**< 哈希算法 */
     uint32_t public_key_size;           /**< 公钥大小 */
     uint32_t signature_size;            /**< 签名大小 */
     uint32_t hash_size;                 /**< 哈希大小 */
@@ -244,7 +244,7 @@ uint32_t rtos_secure_boot_get_statistics(char *buffer, uint32_t size);
 #define RTOS_SECURE_BOOT_DEFAULT_CONFIG() \
     { .enabled = false, \
       .sig_alg = RTOS_SIGNATURE_ALG_RSA2048, \
-      .hash_alg = RTOS_HASH_ALG_SHA256, \
+      .hash_alg = RTOS_SECURE_HASH_ALG_SHA256, \
       .public_key_size = 256, \
       .signature_size = 256, \
       .hash_size = 32, \

@@ -365,7 +365,6 @@ uint32_t rtos_uart_manager_generate_config_report(char *buffer, uint32_t size);
       .stopbits = RTOS_UART_STOPBITS_1, \
       .parity = RTOS_UART_PARITY_NONE, \
       .flowctrl = RTOS_UART_FLOWCTRL_NONE, \
-      .mode = RTOS_UART_MODE_INTERRUPT, \
       .timeout_ms = 1000, \
       .auto_baudrate = false }
 

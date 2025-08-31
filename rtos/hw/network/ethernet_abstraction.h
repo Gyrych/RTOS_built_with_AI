@@ -230,6 +230,14 @@ void rtos_ethernet_manager_periodic_task(void);
 
 #define RTOS_ETH_BROADCAST_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
+/* 调试宏定义 */
+#ifdef RTOS_ETH_DEBUG
+#define RTOS_ETH_DEBUG_PRINT(fmt, ...) \
+    printf("[ETH] " fmt "\r\n", ##__VA_ARGS__)
+#else
+#define RTOS_ETH_DEBUG_PRINT(fmt, ...)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

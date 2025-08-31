@@ -375,6 +375,37 @@ uint32_t rtos_i2c_manager_get_statistics(char *buffer, uint32_t size);
 #define RTOS_I2C_DEBUG_PRINT(fmt, ...)
 #endif
 
+/* 错误检查宏定义 */
+#ifdef RTOS_I2C_ERROR_CHECK
+#define RTOS_I2C_CHECK_PARAM(param) \
+    do { \
+        if (!(param)) { \
+            RTOS_I2C_DEBUG_PRINT("Parameter check failed: %s", #param); \
+            return RTOS_ERROR_INVALID_PARAM; \
+        } \
+    } while(0)
+    
+#define RTOS_I2C_CHECK_INIT() \
+    do { \
+        if (!rtos_i2c_manager_get_instance()) { \
+            RTOS_I2C_DEBUG_PRINT("I2C manager not initialized"); \
+            return RTOS_ERROR_NOT_INITIALIZED; \
+        } \
+    } while(0)
+    
+#define RTOS_I2C_CHECK_PORT(port) \
+    do { \
+        if ((port) >= RTOS_I2C_PORT_MAX) { \
+            RTOS_I2C_DEBUG_PRINT("Invalid I2C port: %d", port); \
+            return RTOS_ERROR_INVALID_PARAM; \
+        } \
+    } while(0)
+#else
+#define RTOS_I2C_CHECK_PARAM(param)
+#define RTOS_I2C_CHECK_INIT()
+#define RTOS_I2C_CHECK_PORT(port)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -32,7 +32,7 @@ typedef enum {
     RTOS_STACK_STATUS_CORRUPTED     /**< 堆栈数据损坏 */
 } rtos_stack_status_t;
 
-/* 内存使用统计结构 */
+/* 内存监控统计结构 */
 typedef struct {
     uint32_t total_ram;             /**< 总RAM大小 */
     uint32_t free_ram;              /**< 空闲RAM大小 */
@@ -46,7 +46,7 @@ typedef struct {
     uint32_t stack_free;            /**< 空闲堆栈大小 */
     uint32_t stack_peak;            /**< 堆栈使用峰值 */
     uint32_t fragmentation_percent; /**< 内存碎片率 */
-} rtos_memory_stats_t;
+} rtos_memory_monitor_stats_t;
 
 /* 内存泄漏统计结构 */
 typedef struct {
@@ -93,7 +93,7 @@ typedef struct {
     /* 私有成员 */
     bool initialized;
     bool leak_detection_enabled;
-    rtos_memory_stats_t stats;
+    rtos_memory_monitor_stats_t stats;
     rtos_memory_leak_stats_t leak_stats;
     
     /* 分配记录链表 */
@@ -147,7 +147,7 @@ rtos_memory_monitor_t* rtos_memory_monitor_get_instance(void);
  * @param stats 统计结构指针
  * @return 操作结果
  */
-rtos_result_t rtos_memory_monitor_get_stats(rtos_memory_stats_t *stats);
+rtos_result_t rtos_memory_monitor_get_stats(rtos_memory_monitor_stats_t *stats);
 
 /**
  * @brief 获取任务堆栈使用情况
@@ -278,15 +278,24 @@ uint32_t rtos_memory_monitor_generate_report(char *buffer, uint32_t size);
 
 /* 内存分配跟踪宏 */
 #ifdef RTOS_MEMORY_LEAK_DETECTION
+/* 取消原有定义，避免重复定义警告 */
+#ifdef rtos_malloc
+#undef rtos_malloc
+#endif
+#ifdef rtos_free
+#undef rtos_free
+#endif
+#ifdef rtos_calloc
+#undef rtos_calloc
+#endif
+#ifdef rtos_realloc
+#undef rtos_realloc
+#endif
+
 #define rtos_malloc(size) rtos_memory_monitor_malloc_tracked((size), __FILE__, __LINE__)
 #define rtos_free(ptr) rtos_memory_monitor_free_tracked((ptr))
 #define rtos_calloc(count, size) rtos_memory_monitor_calloc_tracked((count), (size), __FILE__, __LINE__)
 #define rtos_realloc(ptr, size) rtos_memory_monitor_realloc_tracked((ptr), (size), __FILE__, __LINE__)
-#else
-#define rtos_malloc(size) malloc(size)
-#define rtos_free(ptr) free(ptr)
-#define rtos_calloc(count, size) calloc((count), (size))
-#define rtos_realloc(ptr, size) realloc((ptr), (size))
 #endif
 
 /* 跟踪版本的内存分配函数 */

@@ -132,6 +132,7 @@ rtos_result_t rtos_hw_abstraction_init(void)
     }
     
     /* 初始化性能分析器 */
+    #ifdef RTOS_HW_ENABLE_DEBUG_TOOLS
     rtos_perf_profiler_config_t perf_config = RTOS_PERF_DEFAULT_CONFIG();
     if (rtos_performance_profiler_init(&perf_config) != RTOS_OK) {
         RTOS_HW_DEBUG_PRINT("Performance profiler init failed");
@@ -144,6 +145,39 @@ rtos_result_t rtos_hw_abstraction_init(void)
         RTOS_HW_DEBUG_PRINT("System tracer init failed");
         /* 非关键模块，不返回错误 */
     }
+    #endif
+    
+    /* 初始化安全模块 */
+    #ifdef RTOS_HW_ENABLE_SECURITY
+    rtos_secure_boot_config_t boot_config = RTOS_SECURE_BOOT_DEFAULT_CONFIG();
+    if (rtos_secure_boot_manager_init(&boot_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Secure boot manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    
+    if (rtos_crypto_manager_init(8, 4, 1024) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Crypto manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    /* 初始化网络模块 */
+    #ifdef RTOS_HW_ENABLE_NETWORK
+    rtos_eth_config_t eth_config = RTOS_ETH_DEFAULT_CONFIG();
+    if (rtos_ethernet_manager_init(&eth_config, 16, 16) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Ethernet manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    /* 初始化OTA模块 */
+    #ifdef RTOS_HW_ENABLE_OTA
+    rtos_ota_config_t ota_config = RTOS_OTA_DEFAULT_CONFIG();
+    if (rtos_ota_manager_init(&ota_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("OTA manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
     
     RTOS_HW_DEBUG_PRINT("Hardware abstraction layer fully initialized");
     return RTOS_OK;

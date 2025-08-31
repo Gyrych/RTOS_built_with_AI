@@ -250,6 +250,14 @@ rtos_result_t rtos_ota_manager_register_event_callback(rtos_ota_event_t event,
       .backup_enable = true, \
       .storage_partition_size = 512 * 1024 }
 
+/* 调试宏定义 */
+#ifdef RTOS_OTA_DEBUG
+#define RTOS_OTA_DEBUG_PRINT(fmt, ...) \
+    printf("[OTA] " fmt "\r\n", ##__VA_ARGS__)
+#else
+#define RTOS_OTA_DEBUG_PRINT(fmt, ...)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

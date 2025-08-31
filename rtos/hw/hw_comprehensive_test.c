@@ -111,7 +111,7 @@ rtos_result_t rtos_hw_run_test_suite(rtos_test_suite_t suite)
             result = rtos_hw_test_uart();
             break;
         case RTOS_TEST_SUITE_TIMER:
-            result = rtos_hw_run_timer_tests(); /* 使用现有的定时器测试 */
+            result = rtos_hw_test_timer(); /* 使用定时器测试函数 */
             break;
         case RTOS_TEST_SUITE_INTEGRATION:
             result = rtos_hw_test_integration();
@@ -226,7 +226,7 @@ rtos_result_t rtos_hw_test_memory_management(void)
     /* 测试2: 内存统计查询 */
     total_tests++;
     printf("测试2: 内存统计查询...");
-    rtos_memory_stats_t mem_stats;
+    rtos_memory_monitor_stats_t mem_stats;
     if (rtos_memory_monitor_get_stats(&mem_stats) == RTOS_OK) {
         printf("通过 (总RAM: %lu KB, 已用: %lu KB)\n", 
                mem_stats.total_ram / 1024, mem_stats.used_ram / 1024);
@@ -388,8 +388,16 @@ rtos_result_t rtos_hw_test_gpio(void)
     /* 测试2: GPIO配置 */
     total_tests++;
     printf("测试2: GPIO配置...");
-    rtos_gpio_config_t gpio_config = RTOS_GPIO_MAKE_CONFIG(RTOS_GPIO_PORT_A, RTOS_GPIO_PIN_0, RTOS_GPIO_MODE_OUTPUT_PP);
-    gpio_config.initial_value = false;
+    rtos_gpio_config_t gpio_config = {
+        .port = RTOS_GPIO_PORT_A,
+        .pin = RTOS_GPIO_PIN_0,
+        .mode = RTOS_GPIO_MODE_OUTPUT_PP,
+        .pull = RTOS_GPIO_PULL_NONE,
+        .speed = RTOS_GPIO_SPEED_MEDIUM,
+        .alternate_function = 0,
+        .trigger = RTOS_GPIO_TRIGGER_NONE,
+        .initial_value = false
+    };
     
     rtos_gpio_handle_t *gpio_handle = NULL;
     if (rtos_gpio_manager_config_pin(&gpio_config, &gpio_handle) == RTOS_OK && gpio_handle != NULL) {
@@ -479,7 +487,15 @@ rtos_result_t rtos_hw_test_uart(void)
     /* 测试2: UART端口初始化 */
     total_tests++;
     printf("测试2: UART端口初始化...");
-    rtos_uart_config_t uart_config = RTOS_UART_DEFAULT_CONFIG(115200);
+    rtos_uart_config_t uart_config = {
+        .baudrate = 115200,
+        .databits = RTOS_UART_DATABITS_8,
+        .stopbits = RTOS_UART_STOPBITS_1,
+        .parity = RTOS_UART_PARITY_NONE,
+        .flowctrl = RTOS_UART_FLOWCTRL_NONE,
+        .timeout_ms = 1000,
+        .auto_baudrate = false
+    };
     
     if (rtos_uart_manager_init_port(RTOS_UART_PORT_1, &uart_config, NULL) == RTOS_OK) {
         printf("通过 (115200 bps)\n");
@@ -566,7 +582,7 @@ rtos_result_t rtos_hw_test_integration(void)
     
     /* 查询各模块状态 */
     rtos_power_status_t power_status;
-    rtos_memory_stats_t memory_stats;
+            rtos_memory_monitor_stats_t memory_stats;
     
     bool status_ok = true;
     if (rtos_power_manager_get_status(&power_status) != RTOS_OK) {
@@ -603,10 +619,19 @@ rtos_result_t rtos_hw_run_performance_benchmark(void)
     
     /* GPIO性能测试 */
     printf("GPIO性能测试...");
-    rtos_gpio_config_t gpio_config = RTOS_GPIO_MAKE_CONFIG(RTOS_GPIO_PORT_A, RTOS_GPIO_PIN_1, RTOS_GPIO_MODE_OUTPUT_PP);
+    rtos_gpio_config_t demo_gpio_config = {
+        .port = RTOS_GPIO_PORT_A,
+        .pin = RTOS_GPIO_PIN_2,
+        .mode = RTOS_GPIO_MODE_OUTPUT_PP,
+        .pull = RTOS_GPIO_PULL_NONE,
+        .speed = RTOS_GPIO_SPEED_MEDIUM,
+        .alternate_function = 0,
+        .trigger = RTOS_GPIO_TRIGGER_NONE,
+        .initial_value = false
+    };
     rtos_gpio_handle_t *gpio_handle = NULL;
     
-    if (rtos_gpio_manager_config_pin(&gpio_config, &gpio_handle) == RTOS_OK) {
+    if (rtos_gpio_manager_config_pin(&demo_gpio_config, &gpio_handle) == RTOS_OK) {
         uint32_t gpio_start = rtos_hw_get_system_time_ms();
         
         /* 执行1000次GPIO翻转 */
@@ -793,6 +818,62 @@ static void rtos_test_calculate_overall_stats(void)
 }
 
 /* 新增测试函数 */
+
+/**
+ * @brief 运行定时器测试
+ */
+rtos_result_t rtos_hw_test_timer(void)
+{
+    printf("\n--- 定时器模块测试 ---\n");
+    
+    uint32_t start_time = rtos_hw_get_system_time_ms();
+    uint32_t total_tests = 0;
+    uint32_t passed_tests = 0;
+    
+    /* 测试1: 设置定时器 */
+    total_tests++;
+    printf("测试1: 设置定时器...");
+    if (rtos_hw_set_timer(1000000) == RTOS_OK) { /* 1ms */
+        printf("通过\n");
+        passed_tests++;
+        rtos_hw_stop_timer();
+    } else {
+        printf("失败\n");
+    }
+    
+    /* 测试2: 获取时间戳 */
+    total_tests++;
+    printf("测试2: 获取时间戳...");
+    rtos_time_ns_t timestamp1 = rtos_hw_get_timestamp_ns();
+    rtos_hw_delay_ms(1);
+    rtos_time_ns_t timestamp2 = rtos_hw_get_timestamp_ns();
+    
+    if (timestamp2 > timestamp1) {
+        printf("通过 (时间差: %llu ns)\n", timestamp2 - timestamp1);
+        passed_tests++;
+    } else {
+        printf("失败\n");
+    }
+    
+    /* 测试3: 系统时间查询 */
+    total_tests++;
+    printf("测试3: 系统时间查询...");
+    uint64_t sys_time_ms = rtos_hw_get_system_time_ms();
+    if (sys_time_ms > 0) {
+        printf("通过 (系统时间: %llu ms)\n", sys_time_ms);
+        passed_tests++;
+    } else {
+        printf("失败\n");
+    }
+    
+    uint32_t execution_time = rtos_hw_get_system_time_ms() - start_time;
+    rtos_test_update_suite_result(RTOS_TEST_SUITE_TIMER, total_tests, passed_tests, execution_time);
+    
+    printf("定时器测试完成: %lu/%lu 通过 (%.1f%%)\n", 
+           passed_tests, total_tests, (float)passed_tests / total_tests * 100.0f);
+    
+    return (passed_tests == total_tests) ? RTOS_OK : RTOS_ERROR;
+}
 
 /**
  * @brief 运行DMA测试

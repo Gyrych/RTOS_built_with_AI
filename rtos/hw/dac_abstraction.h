@@ -194,6 +194,12 @@ rtos_result_t rtos_dac_manager_generate_wave(rtos_dac_channel_t channel,
 rtos_result_t rtos_dac_manager_stop_wave(rtos_dac_channel_t channel);
 
 /**
+ * @brief 获取DAC管理器实例
+ * @return DAC管理器指针
+ */
+rtos_dac_manager_t* rtos_dac_manager_get_instance(void);
+
+/**
  * @brief DAC中断处理函数
  * @param channel DAC通道
  */
@@ -214,6 +220,36 @@ void rtos_dac_manager_interrupt_handler(rtos_dac_channel_t channel);
 
 #define RTOS_DAC_VALUE_TO_VOLTAGE(value, ref_voltage_mv) \
     (((value) * (ref_voltage_mv)) / 4095)
+
+/* 调试宏定义 */
+#ifdef RTOS_DAC_DEBUG
+#define RTOS_DAC_DEBUG_PRINT(fmt, ...) \
+    printf("[DAC] " fmt "\r\n", ##__VA_ARGS__)
+#else
+#define RTOS_DAC_DEBUG_PRINT(fmt, ...)
+#endif
+
+/* 错误检查宏定义 */
+#ifdef RTOS_DAC_ERROR_CHECK
+#define RTOS_DAC_CHECK_PARAM(param) \
+    do { \
+        if (!(param)) { \
+            RTOS_DAC_DEBUG_PRINT("Parameter check failed: %s", #param); \
+            return RTOS_ERROR_INVALID_PARAM; \
+        } \
+    } while(0)
+    
+#define RTOS_DAC_CHECK_INIT() \
+    do { \
+        if (!rtos_dac_manager_get_instance()) { \
+            RTOS_DAC_DEBUG_PRINT("DAC manager not initialized"); \
+            return RTOS_ERROR_NOT_INITIALIZED; \
+        } \
+    } while(0)
+#else
+#define RTOS_DAC_CHECK_PARAM(param)
+#define RTOS_DAC_CHECK_INIT()
+#endif
 
 #ifdef __cplusplus
 }

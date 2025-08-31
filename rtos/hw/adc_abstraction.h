@@ -295,6 +295,12 @@ rtos_result_t rtos_adc_manager_read_temperature(rtos_adc_controller_t controller
 rtos_result_t rtos_adc_manager_calibrate(rtos_adc_controller_t controller);
 
 /**
+ * @brief 获取ADC管理器实例
+ * @return ADC管理器指针
+ */
+rtos_adc_manager_t* rtos_adc_manager_get_instance(void);
+
+/**
  * @brief ADC中断处理函数
  * @param controller ADC控制器
  */
@@ -314,6 +320,36 @@ void rtos_adc_manager_interrupt_handler(rtos_adc_controller_t controller);
 #define RTOS_ADC_CHANNEL_CONFIG(ch, rank, sample_time, name) \
     { .channel = (ch), .rank = (rank), .sample_time = (sample_time), \
       .offset = 0, .gain = 1.0f, .reference_voltage = 3.3f, .channel_name = (name) }
+
+/* 调试宏定义 */
+#ifdef RTOS_ADC_DEBUG
+#define RTOS_ADC_DEBUG_PRINT(fmt, ...) \
+    printf("[ADC] " fmt "\r\n", ##__VA_ARGS__)
+#else
+#define RTOS_ADC_DEBUG_PRINT(fmt, ...)
+#endif
+
+/* 错误检查宏定义 */
+#ifdef RTOS_ADC_ERROR_CHECK
+#define RTOS_ADC_CHECK_PARAM(param) \
+    do { \
+        if (!(param)) { \
+            RTOS_ADC_DEBUG_PRINT("Parameter check failed: %s", #param); \
+            return RTOS_ERROR_INVALID_PARAM; \
+        } \
+    } while(0)
+    
+#define RTOS_ADC_CHECK_INIT() \
+    do { \
+        if (!rtos_adc_manager_get_instance()) { \
+            RTOS_ADC_DEBUG_PRINT("ADC manager not initialized"); \
+            return RTOS_ERROR_NOT_INITIALIZED; \
+        } \
+    } while(0)
+#else
+#define RTOS_ADC_CHECK_PARAM(param)
+#define RTOS_ADC_CHECK_INIT()
+#endif
 
 #ifdef __cplusplus
 }

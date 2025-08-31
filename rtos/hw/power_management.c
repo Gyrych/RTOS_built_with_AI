@@ -549,7 +549,7 @@ static rtos_result_t rtos_power_platform_set_mode(rtos_power_mode_t mode)
             
         case RTOS_POWER_MODE_SLEEP:
             /* 进入睡眠模式 */
-            PWR_EnterSleepMode(PWR_Regulator_ON, PWR_SLEEPEntry_WFI);
+            __WFI(); /* 直接使用WFI指令进入睡眠 */
             break;
             
         case RTOS_POWER_MODE_STOP:
