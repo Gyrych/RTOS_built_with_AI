@@ -10,6 +10,13 @@
 
 #include "../core/types.h"
 
+/* 包含新增的硬件抽象模块 */
+#include "power_management.h"
+#include "memory_monitor.h"
+#include "watchdog_manager.h"
+#include "gpio_abstraction.h"
+#include "uart_abstraction.h"
+
 /* 硬件平台类型定义 */
 typedef enum {
     RTOS_HW_PLATFORM_UNKNOWN = 0,

@@ -71,6 +71,36 @@ rtos_result_t rtos_hw_abstraction_init(void)
         return RTOS_ERROR;
     }
     
+    /* 初始化电源管理器 */
+    if (rtos_power_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Power manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化内存监控器 */
+    if (rtos_memory_monitor_init(100, 16, 8) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Memory monitor init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化看门狗管理器 */
+    if (rtos_watchdog_manager_init(16) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Watchdog manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化GPIO管理器 */
+    if (rtos_gpio_manager_init(64) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("GPIO manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化UART管理器 */
+    if (rtos_uart_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("UART manager init failed");
+        return RTOS_ERROR;
+    }
+    
     return RTOS_OK;
 }
 

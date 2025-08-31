@@ -73,4 +73,39 @@
 #define RTOS_HW_ARM_CORTEX_M4          1           /* ARM Cortex-M4内核 */
 #define RTOS_HW_THUMB2                 1           /* Thumb-2指令集 */
 
+/* 新增模块配置 */
+
+/* 电源管理配置 */
+#define RTOS_POWER_DEBUG               1           /* 启用电源管理调试 */
+#define RTOS_POWER_ERROR_CHECK         1           /* 启用电源管理错误检查 */
+
+/* 内存监控配置 */
+#define RTOS_MEMORY_DEBUG              1           /* 启用内存监控调试 */
+#define RTOS_MEMORY_ERROR_CHECK        1           /* 启用内存监控错误检查 */
+#define RTOS_MEMORY_LEAK_DETECTION     1           /* 启用内存泄漏检测 */
+
+/* 看门狗配置 */
+#define RTOS_WATCHDOG_DEBUG            1           /* 启用看门狗调试 */
+#define RTOS_WATCHDOG_ERROR_CHECK      1           /* 启用看门狗错误检查 */
+
+/* GPIO配置 */
+#define RTOS_GPIO_DEBUG                1           /* 启用GPIO调试 */
+#define RTOS_GPIO_ERROR_CHECK          1           /* 启用GPIO错误检查 */
+
+/* UART配置 */
+#define RTOS_UART_DEBUG                1           /* 启用UART调试 */
+#define RTOS_UART_ERROR_CHECK          1           /* 启用UART错误检查 */
+
+/* DMA配置 */
+#define RTOS_DMA_DEBUG                 1           /* 启用DMA调试 */
+#define RTOS_DMA_ERROR_CHECK           1           /* 启用DMA错误检查 */
+
+/* 模块使能配置 */
+#define RTOS_HW_ENABLE_POWER_MGMT      1           /* 启用电源管理模块 */
+#define RTOS_HW_ENABLE_MEMORY_MONITOR  1           /* 启用内存监控模块 */
+#define RTOS_HW_ENABLE_WATCHDOG        1           /* 启用看门狗模块 */
+#define RTOS_HW_ENABLE_GPIO            1           /* 启用GPIO模块 */
+#define RTOS_HW_ENABLE_UART            1           /* 启用UART模块 */
+#define RTOS_HW_ENABLE_DMA             1           /* 启用DMA模块 */
+
 #endif /* __RTOS_HW_CONFIG_H__ */
