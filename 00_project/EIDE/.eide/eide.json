@@ -141,7 +141,11 @@
       },
       {
         "name": "rtos",
-        "files": [],
+        "files": [
+          {
+            "path": "../../02_rtos/core.c"
+          }
+        ],
         "folders": []
       },
       {
@@ -234,7 +238,8 @@
           "../User",
           "../User/config/stm32f4/config",
           "../User/config/stm32f4/core",
-          ".cmsis/include"
+          ".cmsis/include",
+          "../../02_rtos"
         ],
         "libList": [],
         "defineList": [

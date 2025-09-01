@@ -1,12 +1,18 @@
 /* Main函数
   -----------------------------------
-  星火一号开发版LED闪烁程序
-  基于STM32F407标准库
+  RTOS多任务演示程序
+  基于STM32F407标准库和自定义RTOS
 */
 #include "main.h"
+#include "../../02_rtos/core.h"
 
 /* 私有变量定义 */
 static __IO uint32_t TimingDelay;
+
+/* 示例任务函数声明 */
+void task_led_blink(void* arg);
+void task_serial_print(void* arg);
+void task_button_check(void* arg);
 
 /**
   * @brief  主函数
@@ -24,15 +30,74 @@ int main(void)
     /* 延时初始化 */
     Delay_Init();
     
-    /* 主循环 */
+    /* RTOS初始化 */
+    rtos_init();
+    
+    /* 创建多个任务 */
+    task_create(task_led_blink, NULL, 1);      /* 高优先级LED闪烁任务 */
+    task_create(task_serial_print, NULL, 2);   /* 中等优先级串口打印任务 */
+    task_create(task_button_check, NULL, 3);   /* 低优先级按钮检测任务 */
+    
+    /* 启动RTOS调度器 */
+    rtos_start();
+    
+    /* 程序不会执行到这里，因为RTOS会接管控制权 */
     while(1)
     {
-        /* LED闪烁 */
+        /* 空闲时执行 */
+    }
+}
+
+/**
+  * @brief  LED闪烁任务
+  * @param  arg: 任务参数（未使用）
+  * @retval None
+  */
+void task_led_blink(void* arg)
+{
+    while(1)
+    {
         LED_ON();
-        Delay_ms(500);    /* 延时500ms */
+        Delay_ms(200);    /* LED亮200ms */
         
         LED_OFF();
-        Delay_ms(500);    /* 延时500ms */
+        Delay_ms(800);    /* LED灭800ms */
+    }
+}
+
+/**
+  * @brief  串口打印任务
+  * @param  arg: 任务参数（未使用）
+  * @retval None
+  */
+void task_serial_print(void* arg)
+{
+    uint32_t counter = 0;
+    while(1)
+    {
+        /* 这里可以添加串口打印代码 */
+        /* printf("Task2 - Counter: %lu\r\n", counter++); */
+        
+        Delay_ms(1000);   /* 每秒执行一次 */
+    }
+}
+
+/**
+  * @brief  按钮检测任务
+  * @param  arg: 任务参数（未使用）
+  * @retval None
+  */
+void task_button_check(void* arg)
+{
+    while(1)
+    {
+        /* 这里可以添加按钮检测代码 */
+        /* if (GPIO_ReadInputDataBit(BUTTON_GPIO_PORT, BUTTON_GPIO_PIN)) */
+        /* { */
+        /*     LED_TOGGLE(); */
+        /* } */
+        
+        Delay_ms(100);    /* 每100ms检测一次 */
     }
 }
 

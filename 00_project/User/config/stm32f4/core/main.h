@@ -31,6 +31,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx.h"
+#include <stddef.h>
 
 /* LED引脚定义 - 星火一号开发版 */
 #define LED_GPIO_PORT                GPIOF
