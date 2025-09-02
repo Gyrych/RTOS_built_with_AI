@@ -71,6 +71,115 @@ rtos_result_t rtos_hw_abstraction_init(void)
         return RTOS_ERROR;
     }
     
+    /* 初始化电源管理器 */
+    if (rtos_power_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Power manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化内存监控器 */
+    if (rtos_memory_monitor_init(100, 16, 8) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Memory monitor init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化看门狗管理器 */
+    if (rtos_watchdog_manager_init(16) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Watchdog manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化GPIO管理器 */
+    if (rtos_gpio_manager_init(64) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("GPIO manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化UART管理器 */
+    if (rtos_uart_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("UART manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化DMA管理器 */
+    if (rtos_dma_manager_init(32) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("DMA manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化SPI管理器 */
+    if (rtos_spi_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("SPI manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化I2C管理器 */
+    if (rtos_i2c_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("I2C manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化ADC管理器 */
+    if (rtos_adc_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("ADC manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化DAC管理器 */
+    if (rtos_dac_manager_init() != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("DAC manager init failed");
+        return RTOS_ERROR;
+    }
+    
+    /* 初始化性能分析器 */
+    #ifdef RTOS_HW_ENABLE_DEBUG_TOOLS
+    rtos_perf_profiler_config_t perf_config = RTOS_PERF_DEFAULT_CONFIG();
+    if (rtos_performance_profiler_init(&perf_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Performance profiler init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    
+    /* 初始化系统跟踪器 */
+    rtos_trace_config_t trace_config = RTOS_TRACE_DEFAULT_CONFIG();
+    if (rtos_system_tracer_init(&trace_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("System tracer init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    /* 初始化安全模块 */
+    #ifdef RTOS_HW_ENABLE_SECURITY
+    rtos_secure_boot_config_t boot_config = RTOS_SECURE_BOOT_DEFAULT_CONFIG();
+    if (rtos_secure_boot_manager_init(&boot_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Secure boot manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    
+    if (rtos_crypto_manager_init(8, 4, 1024) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Crypto manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    /* 初始化网络模块 */
+    #ifdef RTOS_HW_ENABLE_NETWORK
+    rtos_eth_config_t eth_config = RTOS_ETH_DEFAULT_CONFIG();
+    if (rtos_ethernet_manager_init(&eth_config, 16, 16) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("Ethernet manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    /* 初始化OTA模块 */
+    #ifdef RTOS_HW_ENABLE_OTA
+    rtos_ota_config_t ota_config = RTOS_OTA_DEFAULT_CONFIG();
+    if (rtos_ota_manager_init(&ota_config) != RTOS_OK) {
+        RTOS_HW_DEBUG_PRINT("OTA manager init failed");
+        /* 非关键模块，不返回错误 */
+    }
+    #endif
+    
+    RTOS_HW_DEBUG_PRINT("Hardware abstraction layer fully initialized");
     return RTOS_OK;
 }
 
