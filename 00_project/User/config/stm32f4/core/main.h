@@ -35,7 +35,7 @@
 
 /* LED引脚定义 - 星火一号开发版 */
 #define LED_GPIO_PORT                GPIOF
-#define LED_GPIO_CLK                 RCC_AHB1ENR_GPIOFEN
+#define LED_GPIO_CLK                 RCC_AHB1Periph_GPIOF
 #define LED_GPIO_PIN                 GPIO_Pin_11
 #define LED_GPIO_PIN_SOURCE          GPIO_PinSource11
 

@@ -114,6 +114,8 @@ void UsageFault_Handler(void)
   */
 void SVC_Handler(void)
 {
+    extern void svc_handler(void);
+    svc_handler();
 }
 
 /**
@@ -130,19 +132,21 @@ void DebugMon_Handler(void)
   * @param  None
   * @retval None
   */
-//void PendSV_Handler(void)
-//{
-//}
+void PendSV_Handler(void)
+{
+    extern void pend_sv_handler(void);
+    pend_sv_handler();
+}
 
 /**
   * @brief  This function handles SysTick Handler.
   * @param  None
   * @retval None
   */
-//void SysTick_Handler(void)
-//{
-//  TimingDelay_Decrement();
-//}
+void SysTick_Handler(void)
+{
+  TimingDelay_Decrement();
+}
 
 /******************************************************************************/
 /*                 STM32F4xx Peripherals Interrupt Handlers                   */

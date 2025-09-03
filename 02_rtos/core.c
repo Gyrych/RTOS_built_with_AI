@@ -1,5 +1,6 @@
 #include "core.h"
 #include <string.h>
+#include "stm32f4xx.h"
 
 scheduler_t scheduler;  /* 全局调度器实例 */
 
@@ -23,10 +24,18 @@ void rtos_start(void) {
         return;  /* 没有任务可调度 */
     }
     
-    __asm volatile(
-        "cpsie i\n"  /* 开启全局中断 */
-        "svc 0\n"    /* 触发SVC异常，进入调度器 */
-    );
+    /* 找到第一个要运行的任务 */
+    task_t* first_task = find_highest_priority_task();
+    if (first_task == NULL) {
+        return;  /* 没有就绪任务 */
+    }
+    
+    /* 设置当前任务 */
+    scheduler.current_task = first_task;
+    first_task->state = TASK_RUNNING;
+    
+    /* 直接调用第一个任务，不使用复杂的上下文切换 */
+    first_task->task_func(first_task->arg);
 }
 
 /* 创建新任务 */
@@ -35,23 +44,31 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
         return NULL;  /* 任务数量或优先级超出限制 */
     }
     
-    task_t* task = &scheduler.tasks[scheduler.task_count];
+    /* 分配任务控制块内存 */
+    static task_t task_pool[MAX_TASKS];
+    task_t* task = &task_pool[scheduler.task_count];
+    
     task->task_func = func;      /* 设置任务函数 */
     task->arg = arg;             /* 设置任务参数 */
     task->priority = priority;   /* 设置任务优先级 */
     task->state = TASK_READY;    /* 设置任务状态为就绪 */
     
     /* 初始化任务堆栈 - 模拟异常返回时的堆栈帧 */
+    /* 确保堆栈8字节对齐 */
     uint32_t* stack_top = &task->stack[STACK_SIZE - 16];
+    stack_top = (uint32_t*)((uint32_t)stack_top & ~0x7);  /* 8字节对齐 */
     
-    stack_top[0] = 0x01000000;       /* xPSR - 默认Thumb状态 */
+    /* 按照Cortex-M4异常返回时的堆栈帧格式初始化 */
+    /* 注意：Cortex-M4异常返回时自动恢复的寄存器顺序 */
+    /* 堆栈帧格式：xPSR, PC, LR, R12, R3, R2, R1, R0, R11, R10, R9, R8, R7, R6, R5, R4 */
+    stack_top[0] = 0x01000000;       /* xPSR - Thumb状态，无异常号 */
     stack_top[1] = (uint32_t)func;   /* PC - 任务入口地址 */
-    stack_top[2] = (uint32_t)arg;    /* LR - 任务参数 */
+    stack_top[2] = 0xFFFFFFFD;       /* LR - 返回地址，使用特殊值表示从异常返回 */
     stack_top[3] = 0;                /* R12 */
     stack_top[4] = 0;                /* R3 */
     stack_top[5] = 0;                /* R2 */
     stack_top[6] = 0;                /* R1 */
-    stack_top[7] = 0;                /* R0 */
+    stack_top[7] = (uint32_t)arg;    /* R0 - 任务参数 */
     stack_top[8] = 0;                /* R11 */
     stack_top[9] = 0;                /* R10 */
     stack_top[10] = 0;               /* R9 */
@@ -61,7 +78,8 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
     stack_top[14] = 0;               /* R5 */
     stack_top[15] = 0;               /* R4 */
     
-    task->stack_ptr = stack_top;     /* 设置初始堆栈指针 */
+    /* 堆栈指针应该指向堆栈帧的顶部（第一个寄存器） */
+    task->stack_ptr = stack_top;
     
     scheduler.tasks[scheduler.task_count] = task;
     scheduler.task_count++;
@@ -128,10 +146,8 @@ void rtos_schedule(void) {
         next_task->state = TASK_RUNNING;      /* 新任务状态改为运行 */
         scheduler.current_task = next_task;   /* 更新当前运行任务 */
         
-        __asm volatile(
-            "cpsid i\n"  /* 禁用全局中断 */
-            "svc 0\n"    /* 触发SVC异常，执行上下文切换 */
-        );
+        /* 触发PendSV中断进行上下文切换 */
+        SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
     }
 }
 
@@ -141,19 +157,48 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "cpsid i\n"                     /* 禁用中断 */
         "mrs r0, psp\n"                 /* 读取进程堆栈指针 */
         "stmdb r0!, {r4-r11}\n"         /* 保存当前任务的寄存器R4-R11到堆栈 */
-        "str r0, [%0]\n"               /* 保存更新后的堆栈指针到当前任务的stack_ptr */
         
-        "bl find_highest_priority_task\n"  /* 调用C函数找到下一个要运行的任务 */
-        "str r0, [%1]\n"               /* 保存新任务指针到current_task */
+        /* 保存当前任务的堆栈指针 */
+        "ldr r1, =scheduler\n"          /* 加载调度器地址 */
+        "ldr r2, [r1, #8]\n"            /* 加载current_task指针 */
+        "str r0, [r2, #8]\n"            /* 保存堆栈指针到当前任务的stack_ptr */
         
-        "ldr r0, [r0]\n"               /* 加载新任务的堆栈指针 */
+        /* 查找下一个要运行的任务 - 使用内联汇编实现 */
+        "ldr r3, [r1, #4]\n"            /* 加载task_count */
+        "mov r4, #0\n"                  /* 初始化循环计数器 */
+        "mov r5, #32\n"                 /* 最大优先级值 */
+        "mov r6, #0\n"                  /* 最高优先级任务指针 */
+        
+        "find_loop:\n"
+        "cmp r4, r3\n"                  /* 检查是否遍历完所有任务 */
+        "bge find_done\n"               /* 如果遍历完，跳转到完成 */
+        
+        "ldr r7, [r1, r4, lsl #2]\n"    /* 加载tasks[i] */
+        "ldrb r8, [r7, #20]\n"          /* 加载任务状态 */
+        "cmp r8, #0\n"                  /* 检查是否为TASK_READY */
+        "bne find_next\n"               /* 如果不是就绪状态，跳过 */
+        
+        "ldr r8, [r7, #16]\n"           /* 加载任务优先级 */
+        "cmp r8, r5\n"                  /* 比较优先级 */
+        "bge find_next\n"               /* 如果优先级不更高，跳过 */
+        
+        "mov r5, r8\n"                  /* 更新最高优先级 */
+        "mov r6, r7\n"                  /* 更新最高优先级任务指针 */
+        
+        "find_next:\n"
+        "add r4, r4, #1\n"              /* 增加循环计数器 */
+        "b find_loop\n"                 /* 继续循环 */
+        
+        "find_done:\n"
+        "str r6, [r1, #8]\n"            /* 保存新任务指针到current_task */
+        
+        /* 恢复新任务的上下文 */
+        "ldr r0, [r6, #8]\n"            /* 加载新任务的堆栈指针 */
         "ldmia r0!, {r4-r11}\n"         /* 从新任务的堆栈恢复寄存器R4-R11 */
         "msr psp, r0\n"                /* 更新进程堆栈指针 */
         
         "cpsie i\n"                    /* 启用中断 */
         "bx lr\n"                      /* 返回，自动恢复剩余的寄存器 */
-        :
-        : "r" (&scheduler.current_task->stack_ptr), "r" (&scheduler.current_task)
     );
 }
 
@@ -174,7 +219,9 @@ void __attribute__((naked)) svc_handler(void) {
         "bx lr\n"                     /* 返回，不处理其他SVC调用 */
         
         "schedule:\n"                 /* 调度处理标签 */
-        "bl rtos_schedule\n"          /* 调用调度器函数 */
+        "ldr r0, =0xE000ED04\n"       /* 加载ICSR寄存器地址 */
+        "ldr r1, =0x10000000\n"       /* PendSV挂起位 */
+        "str r1, [r0]\n"              /* 触发PendSV中断 */
         "bx lr\n"                     /* 返回 */
     );
 }

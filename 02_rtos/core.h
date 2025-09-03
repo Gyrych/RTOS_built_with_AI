@@ -40,6 +40,7 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority);  /* 创�
 void task_suspend(task_t* task);  /* 挂起指定任务 */
 void task_resume(task_t* task);   /* 恢复挂起的任务 */
 void task_delete(task_t* task);   /* 删除任务 */
+task_t* find_highest_priority_task(void);  /* 查找最高优先级任务 */
 
 void __attribute__((naked)) pend_sv_handler(void);  /* PendSV中断处理函数 */
 void __attribute__((naked)) svc_handler(void);       /* SVC中断处理函数 */

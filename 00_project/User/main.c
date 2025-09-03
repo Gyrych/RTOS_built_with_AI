@@ -30,6 +30,11 @@ int main(void)
     /* 延时初始化 */
     Delay_Init();
     
+    /* 配置中断优先级 */
+    NVIC_SetPriority(SVCall_IRQn, 0);      /* SVC中断优先级设为最高 */
+    NVIC_SetPriority(PendSV_IRQn, 15);     /* PendSV中断优先级设为最低 */
+    NVIC_SetPriority(SysTick_IRQn, 5);     /* SysTick中断优先级 */
+    
     /* RTOS初始化 */
     rtos_init();
     
@@ -42,9 +47,12 @@ int main(void)
     rtos_start();
     
     /* 程序不会执行到这里，因为RTOS会接管控制权 */
+    /* 如果执行到这里，说明RTOS启动失败 */
     while(1)
     {
-        /* 空闲时执行 */
+        /* 如果RTOS启动失败，LED会快速闪烁表示错误 */
+        LED_TOGGLE();
+        Delay_ms(100);
     }
 }
 
@@ -147,8 +155,9 @@ void Delay_Init(void)
   */
 void Delay_ms(uint32_t ms)
 {
-    TimingDelay = ms;
-    while(TimingDelay != 0);
+    /* 使用简单的循环延时，不依赖SysTick中断 */
+    volatile uint32_t count = ms * 1000;  /* 假设1ms = 1000个循环 */
+    while(count--);
 }
 
 /**
@@ -156,13 +165,14 @@ void Delay_ms(uint32_t ms)
   * @param  None
   * @retval None
   */
-void SysTick_Handler(void)
-{
-    if(TimingDelay != 0x00)
-    {
-        TimingDelay--;
-    }
-}
+// 注意：SysTick_Handler已经在stm32f4xx_it.c中定义，这里不需要重复定义
+// void SysTick_Handler(void)
+// {
+//     if(TimingDelay != 0x00)
+//     {
+//         TimingDelay--;
+//     }
+// }
 
 /**
   * @brief  延时递减函数（兼容性）
