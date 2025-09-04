@@ -322,14 +322,23 @@ void delay_ms(uint32_t ms) {
 #### 1. 断点调试
 ```c
 // 在关键位置设置断点
-void task_led_blink(void* arg) {
+void task_led_g_blink(void* arg) {
     while(1) {
-        LED_ON();
+        LED_G_ON();
         // 在这里设置断点
-        Delay_ms(200);
+        Delay_ms(50);
         
-        LED_OFF();
-        Delay_ms(800);
+        LED_G_OFF();
+        Delay_ms(50);
+    }
+}
+
+void task_serial_print(void* arg) {
+    uint32_t counter = 0;
+    while(1) {
+        // 在这里设置断点
+        printf("Hellow rtos! Counter: %lu\r\n", counter++);
+        Delay_ms(1000);
     }
 }
 ```
@@ -378,15 +387,27 @@ void debug_printf(const char* format, ...) {
 
 #### 2. LED指示
 ```c
-// 使用LED指示系统状态
+// 使用双LED指示系统状态
 void debug_led_indicate(uint32_t pattern) {
     for (uint8_t i = 0; i < 8; i++) {
         if (pattern & (1 << i)) {
-            LED_ON();
+            LED_G_ON();  // 使用绿色LED
         } else {
-            LED_OFF();
+            LED_G_OFF();
         }
         Delay_ms(100);
+    }
+}
+
+// 使用红色LED指示错误状态
+void debug_error_indicate(uint32_t error_code) {
+    for (uint8_t i = 0; i < 4; i++) {
+        if (error_code & (1 << i)) {
+            LED_R_ON();  // 使用红色LED
+        } else {
+            LED_R_OFF();
+        }
+        Delay_ms(200);
     }
 }
 ```

@@ -33,9 +33,9 @@
 └── core.c              # RTOS核心实现
 
 User/
-├── main.c              # 主程序（已更新）
+├── main.c              # 主程序（已更新 - 多任务演示）
 └── config/stm32f4/core/
-    ├── main.h          # 主头文件（已更新）
+    ├── main.h          # 主头文件（已更新 - 双LED和UART1配置）
     ├── stm32f4xx_it.h  # 中断头文件（已更新）
     └── stm32f4xx_it.c  # 中断处理文件（已更新）
 ```
@@ -49,7 +49,10 @@ User/
 int main(void)
 {
     SystemInit();
-    Time_Init();  // 初始化延时系统
+    LED_G_Init();     // 初始化绿色LED (PF11)
+    LED_R_Init();     // 初始化红色LED (PF12)
+    UART1_Init();     // 初始化UART1串口
+    Time_Init();      // 初始化延时系统
     // ... 其他初始化代码
 }
 ```
@@ -84,6 +87,20 @@ void my_task(void* arg)
 }
 ```
 
+### 4. 串口输出使用
+```c
+void uart_task(void* arg)
+{
+    uint32_t counter = 0;
+    while(1)
+    {
+        // 使用printf输出，自动重定向到UART1
+        printf("Task running, counter: %lu\r\n", counter++);
+        Delay_ms(1000);
+    }
+}
+```
+
 ## 实现原理
 
 ### 1. 定时器配置
@@ -108,31 +125,42 @@ void my_task(void* arg)
 
 项目中的测试代码展示了不同精度延时的使用：
 
-### LED闪烁任务
+### 多任务演示
 ```c
-void task_led_blink(void* arg)
+// 绿色LED闪烁任务 - 周期100ms
+void task_led_g_blink(void* arg)
 {
     while(1)
     {
-        LED_ON();
-        Delay_ms(200);    // 200ms延时
+        LED_G_ON();
+        Delay_ms(50);     // 绿色LED亮50ms
         
-        LED_OFF(); 
-        Delay_ms(800);    // 800ms延时
+        LED_G_OFF();
+        Delay_ms(50);     // 绿色LED灭50ms，总周期100ms
+    }
+}
+
+// 红色LED闪烁任务 - 周期500ms
+void task_led_r_blink(void* arg)
+{
+    while(1)
+    {
+        LED_R_ON();
+        Delay_ms(250);    // 红色LED亮250ms
         
-        // 测试微秒级延时
-        LED_ON();
-        Delay_us(1000);   // 1ms延时
-        
-        LED_OFF();
-        Delay_us(5000);   // 5ms延时
-        
-        // 测试纳秒级延时
-        LED_ON();
-        Delay_ns(100000); // 100μs延时
-        
-        LED_OFF();
-        Delay_ns(500000); // 500μs延时
+        LED_R_OFF();
+        Delay_ms(250);    // 红色LED灭250ms，总周期500ms
+    }
+}
+
+// 串口打印任务 - 周期1000ms
+void task_serial_print(void* arg)
+{
+    uint32_t counter = 0;
+    while(1)
+    {
+        printf("Hellow rtos! Counter: %lu\r\n", counter++);
+        Delay_ms(1000);   // 1000ms延时
     }
 }
 ```
@@ -144,6 +172,11 @@ void task_led_blink(void* arg)
 3. **中断优先级**: TIM2中断优先级设为3，确保延时精度
 4. **任务调度**: 延时期间会进行任务调度，确保系统响应性
 5. **资源占用**: 使用TIM2定时器，请确保不与其他功能冲突
+6. **硬件配置**: 
+   - 绿色LED使用PF11引脚
+   - 红色LED使用PF12引脚
+   - UART1使用PA9(TX)和PA10(RX)引脚，波特率115200
+7. **printf重定向**: 已实现printf输出重定向到UART1，支持标准格式化输出
 
 ## 性能特点
 
@@ -165,3 +198,12 @@ void task_led_blink(void* arg)
 ## 总结
 
 本实现成功地将STM32F407的TIM2定时器与自定义RTOS系统集成，提供了高精度、低功耗的延时功能。通过硬件定时器和软件任务调度的结合，实现了既精确又高效的延时系统，满足了嵌入式实时系统的需求。
+
+### 当前功能演示
+
+系统运行时会同时执行三个任务：
+1. **绿色LED任务**: PF11引脚，100ms周期闪烁，展示高频率任务调度
+2. **红色LED任务**: PF12引脚，500ms周期闪烁，展示中等频率任务调度  
+3. **串口打印任务**: UART1输出"Hellow rtos!"，1000ms周期，展示串口通信和printf重定向
+
+这种多任务并发执行充分验证了RTOS系统的任务调度能力和高精度延时系统的可靠性。

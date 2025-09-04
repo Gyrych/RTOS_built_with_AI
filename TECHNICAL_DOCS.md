@@ -19,9 +19,9 @@
 ├─────────────────────────────────────────────────────────────┤
 │  应用层 (Application Layer)                                  │
 │  ├── main.c - 多任务演示程序                                 │
-│  ├── task_led_blink() - LED闪烁任务                         │
-│  ├── task_serial_print() - 串口打印任务                     │
-│  └── task_button_check() - 按钮检测任务                     │
+│  ├── task_led_g_blink() - 绿色LED闪烁任务 (PF11, 100ms)     │
+│  ├── task_led_r_blink() - 红色LED闪烁任务 (PF12, 500ms)     │
+│  └── task_serial_print() - 串口打印任务 (UART1, 1000ms)     │
 ├─────────────────────────────────────────────────────────────┤
 │  RTOS层 (RTOS Layer)                                        │
 │  ├── core.c/h - 任务调度器                                  │
@@ -36,12 +36,14 @@
 │  硬件抽象层 (HAL Layer)                                     │
 │  ├── STM32F4标准外设库                                      │
 │  ├── CMSIS核心文件                                          │
+│  ├── 双LED控制 (PF11, PF12)                                │
+│  ├── UART1串口通信 (PA9, PA10)                             │
 │  └── 硬件配置 (GPIO, 时钟, 中断)                           │
 ├─────────────────────────────────────────────────────────────┤
 │  硬件层 (Hardware Layer)                                    │
 │  ├── STM32F407VGTx微控制器                                  │
 │  ├── 星火一号开发板                                         │
-│  └── 外设 (LED, 定时器, 中断控制器)                        │
+│  └── 外设 (双LED, UART1, 定时器, 中断控制器)              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -388,10 +390,29 @@ uint32_t Time_GetRemainingTicks(void);   // 获取剩余延时时钟周期数
 
 #### LED控制
 ```c
-void LED_Init(void);           // LED初始化
-#define LED_ON()              // LED开启
-#define LED_OFF()             // LED关闭
-#define LED_TOGGLE()          // LED切换
+// 绿色LED控制
+void LED_G_Init(void);        // 绿色LED初始化
+#define LED_G_ON()            // 绿色LED开启
+#define LED_G_OFF()           // 绿色LED关闭
+#define LED_G_TOGGLE()        // 绿色LED切换
+
+// 红色LED控制
+void LED_R_Init(void);        // 红色LED初始化
+#define LED_R_ON()            // 红色LED开启
+#define LED_R_OFF()           // 红色LED关闭
+#define LED_R_TOGGLE()        // 红色LED切换
+
+// 兼容性宏定义
+void LED_Init(void);          // LED初始化（兼容性）
+#define LED_ON()              // LED开启（兼容性）
+#define LED_OFF()             // LED关闭（兼容性）
+#define LED_TOGGLE()          // LED切换（兼容性）
+```
+
+#### UART1串口通信
+```c
+void UART1_Init(void);        // UART1初始化
+int fputc(int ch, FILE *f);   // printf重定向函数
 ```
 
 ## 性能分析
