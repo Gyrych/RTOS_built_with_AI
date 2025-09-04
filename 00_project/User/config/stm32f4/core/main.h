@@ -53,6 +53,11 @@ void LED_Init(void);
 void Delay_Init(void);
 void Delay_ms(uint32_t ms);
 
+/* 新的高精度延时函数声明 */
+void Delay_ns(uint32_t ns);
+void Delay_us(uint32_t us);
+void Time_Init(void);
+
 #endif /* __MAIN_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

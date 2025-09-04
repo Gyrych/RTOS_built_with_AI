@@ -144,6 +144,9 @@
         "files": [
           {
             "path": "../../02_rtos/core.c"
+          },
+          {
+            "path": "../../02_rtos/time.c"
           }
         ],
         "folders": []

@@ -148,6 +148,17 @@ void SysTick_Handler(void)
   TimingDelay_Decrement();
 }
 
+/**
+  * @brief  This function handles TIM2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void TIM2_IRQHandler(void)
+{
+    extern void TIM2_IRQHandler_Internal(void);
+    TIM2_IRQHandler_Internal();
+}
+
 /******************************************************************************/
 /*                 STM32F4xx Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */

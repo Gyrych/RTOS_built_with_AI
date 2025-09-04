@@ -160,11 +160,11 @@ void __attribute__((naked)) pend_sv_handler(void) {
         
         /* 保存当前任务的堆栈指针 */
         "ldr r1, =scheduler\n"          /* 加载调度器地址 */
-        "ldr r2, [r1, #8]\n"            /* 加载current_task指针 */
+        "ldr r2, [r1, #132]\n"          /* 加载current_task指针 (偏移量132) */
         "str r0, [r2, #8]\n"            /* 保存堆栈指针到当前任务的stack_ptr */
         
         /* 查找下一个要运行的任务 - 使用内联汇编实现 */
-        "ldr r3, [r1, #4]\n"            /* 加载task_count */
+        "ldr r3, [r1, #128]\n"          /* 加载task_count (偏移量128) */
         "mov r4, #0\n"                  /* 初始化循环计数器 */
         "mov r5, #32\n"                 /* 最大优先级值 */
         "mov r6, #0\n"                  /* 最高优先级任务指针 */
@@ -173,7 +173,7 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "cmp r4, r3\n"                  /* 检查是否遍历完所有任务 */
         "bge find_done\n"               /* 如果遍历完，跳转到完成 */
         
-        "ldr r7, [r1, r4, lsl #2]\n"    /* 加载tasks[i] */
+        "ldr r7, [r1, r4, lsl #2]\n"    /* 加载tasks[i] (偏移量0) */
         "ldrb r8, [r7, #20]\n"          /* 加载任务状态 */
         "cmp r8, #0\n"                  /* 检查是否为TASK_READY */
         "bne find_next\n"               /* 如果不是就绪状态，跳过 */
@@ -190,7 +190,7 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "b find_loop\n"                 /* 继续循环 */
         
         "find_done:\n"
-        "str r6, [r1, #8]\n"            /* 保存新任务指针到current_task */
+        "str r6, [r1, #132]\n"          /* 保存新任务指针到current_task (偏移量132) */
         
         /* 恢复新任务的上下文 */
         "ldr r0, [r6, #8]\n"            /* 加载新任务的堆栈指针 */

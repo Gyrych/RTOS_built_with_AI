@@ -2,9 +2,11 @@
   -----------------------------------
   RTOS多任务演示程序
   基于STM32F407标准库和自定义RTOS
+  集成TIM2高精度延时功能
 */
 #include "main.h"
 #include "../../02_rtos/core.h"
+#include "../../02_rtos/time.h"
 
 /* 私有变量定义 */
 static __IO uint32_t TimingDelay;
@@ -27,8 +29,8 @@ int main(void)
     /* LED初始化 */
     LED_Init();
     
-    /* 延时初始化 */
-    Delay_Init();
+    /* 高精度延时系统初始化 */
+    Time_Init();
     
     /* 配置中断优先级 */
     NVIC_SetPriority(SVCall_IRQn, 0);      /* SVC中断优先级设为最高 */
@@ -52,12 +54,13 @@ int main(void)
     {
         /* 如果RTOS启动失败，LED会快速闪烁表示错误 */
         LED_TOGGLE();
-        Delay_ms(100);
+        /* 使用简单的循环延时，避免调用Delay_ms */
+        for(volatile uint32_t i = 0; i < 1000000; i++);
     }
 }
 
 /**
-  * @brief  LED闪烁任务
+  * @brief  LED闪烁任务 - 测试高精度延时
   * @param  arg: 任务参数（未使用）
   * @retval None
   */
@@ -70,11 +73,25 @@ void task_led_blink(void* arg)
         
         LED_OFF();
         Delay_ms(800);    /* LED灭800ms */
+        
+        /* 测试微秒级延时 */
+        LED_ON();
+        Delay_us(1000);   /* LED亮1ms */
+        
+        LED_OFF();
+        Delay_us(5000);   /* LED灭5ms */
+        
+        /* 测试纳秒级延时 */
+        LED_ON();
+        Delay_ns(100000); /* LED亮100us */
+        
+        LED_OFF();
+        Delay_ns(500000); /* LED灭500us */
     }
 }
 
 /**
-  * @brief  串口打印任务
+  * @brief  串口打印任务 - 测试不同精度延时
   * @param  arg: 任务参数（未使用）
   * @retval None
   */
@@ -86,12 +103,17 @@ void task_serial_print(void* arg)
         /* 这里可以添加串口打印代码 */
         /* printf("Task2 - Counter: %lu\r\n", counter++); */
         
-        Delay_ms(1000);   /* 每秒执行一次 */
+        /* 测试不同精度的延时 */
+        Delay_ms(500);    /* 500ms延时 */
+        Delay_us(100000); /* 100ms延时 */
+        Delay_ns(1000000); /* 1ms延时 */
+        
+        counter++;
     }
 }
 
 /**
-  * @brief  按钮检测任务
+  * @brief  按钮检测任务 - 测试高频率延时
   * @param  arg: 任务参数（未使用）
   * @retval None
   */
@@ -105,7 +127,9 @@ void task_button_check(void* arg)
         /*     LED_TOGGLE(); */
         /* } */
         
-        Delay_ms(100);    /* 每100ms检测一次 */
+        /* 测试高频率延时 */
+        Delay_us(10000);  /* 10ms延时 */
+        Delay_ns(100000); /* 100us延时 */
     }
 }
 
@@ -134,30 +158,14 @@ void LED_Init(void)
 }
 
 /**
-  * @brief  延时初始化函数
+  * @brief  延时初始化函数（已废弃，使用Time_Init替代）
   * @param  None
   * @retval None
   */
 void Delay_Init(void)
 {
-    /* 配置SysTick为1ms中断 */
-    if(SysTick_Config(SystemCoreClock / 1000))
-    {
-        /* 如果配置失败，进入死循环 */
-        while(1);
-    }
-}
-
-/**
-  * @brief  毫秒延时函数
-  * @param  ms: 延时时间，单位毫秒
-  * @retval None
-  */
-void Delay_ms(uint32_t ms)
-{
-    /* 使用简单的循环延时，不依赖SysTick中断 */
-    volatile uint32_t count = ms * 1000;  /* 假设1ms = 1000个循环 */
-    while(count--);
+    /* 此函数已废弃，请使用Time_Init()替代 */
+    /* 保留此函数仅为了兼容性，实际不执行任何操作 */
 }
 
 /**
