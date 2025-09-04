@@ -1,15 +1,30 @@
-/* Main函数
-  -----------------------------------
-  RTOS多任务演示程序
-  基于STM32F407标准库和自定义RTOS
-  集成TIM2高精度延时功能
-*/
+/**
+  ******************************************************************************
+  * @file    main.c
+  * @author  RTOS Team
+  * @version V1.0.0
+  * @date    2025-01-14
+  * @brief   STM32F407 RTOS多任务演示程序
+  *          基于STM32F407标准库和自定义RTOS系统
+  *          集成TIM2高精度延时功能（毫秒/微秒/纳秒级）
+  ******************************************************************************
+  * @attention
+  *
+  * 本程序演示了自定义RTOS系统的多任务调度功能：
+  * 1. LED闪烁任务 - 测试高精度延时功能
+  * 2. 串口打印任务 - 测试不同精度延时
+  * 3. 按钮检测任务 - 测试高频率延时
+  * 
+  * 硬件平台：星火一号开发板 (STM32F407VGTx)
+  * LED引脚：GPIOF Pin 11
+  *
+  ******************************************************************************
+  */
 #include "main.h"
 #include "../../02_rtos/core.h"
 #include "../../02_rtos/time.h"
 
-/* 私有变量定义 */
-static __IO uint32_t TimingDelay;
+/* 私有变量定义 - 已移除废弃的TimingDelay变量 */
 
 /* 示例任务函数声明 */
 void task_led_blink(void* arg);
@@ -32,10 +47,10 @@ int main(void)
     /* 高精度延时系统初始化 */
     Time_Init();
     
-    /* 配置中断优先级 */
+    /* 配置中断优先级 - Tickless RTOS系统 */
     NVIC_SetPriority(SVCall_IRQn, 0);      /* SVC中断优先级设为最高 */
     NVIC_SetPriority(PendSV_IRQn, 15);     /* PendSV中断优先级设为最低 */
-    NVIC_SetPriority(SysTick_IRQn, 5);     /* SysTick中断优先级 */
+    /* 注意：不使用SysTick中断，系统采用事件驱动架构 */
     
     /* RTOS初始化 */
     rtos_init();
@@ -157,40 +172,10 @@ void LED_Init(void)
     LED_OFF();
 }
 
-/**
-  * @brief  延时初始化函数（已废弃，使用Time_Init替代）
-  * @param  None
-  * @retval None
-  */
-void Delay_Init(void)
-{
-    /* 此函数已废弃，请使用Time_Init()替代 */
-    /* 保留此函数仅为了兼容性，实际不执行任何操作 */
-}
+/* Delay_Init函数已移除 - 请使用Time_Init()替代 */
 
-/**
-  * @brief  SysTick中断服务函数
-  * @param  None
-  * @retval None
-  */
-// 注意：SysTick_Handler已经在stm32f4xx_it.c中定义，这里不需要重复定义
-// void SysTick_Handler(void)
-// {
-//     if(TimingDelay != 0x00)
-//     {
-//         TimingDelay--;
-//     }
-// }
-
-/**
-  * @brief  延时递减函数（兼容性）
-  * @param  None
-  * @retval None
-  */
-void TimingDelay_Decrement(void)
-{
-    if(TimingDelay != 0x00)
-    {
-        TimingDelay--;
-    }
-}
+/* 
+ * Tickless RTOS系统 - 不使用SysTick
+ * 所有延时都通过TIM2高精度定时器实现
+ * 系统采用事件驱动架构，无需周期性时钟中断
+ */

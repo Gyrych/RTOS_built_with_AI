@@ -1,26 +1,21 @@
 /**
   ******************************************************************************
-  * @file    Project/STM32F4xx_StdPeriph_Templates/main.h 
-  * @author  MCD Application Team
-  * @version V1.8.0
-  * @date    04-November-2016
-  * @brief   Header for main.c module
+  * @file    main.h
+  * @author  RTOS Team
+  * @version V1.0.0
+  * @date    2025-01-14
+  * @brief   STM32F407 RTOS项目主头文件
+  *          定义硬件抽象层接口和LED控制宏
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT 2016 STMicroelectronics</center></h2>
-  *
-  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
-  * You may not use this file except in compliance with the License.
-  * You may obtain a copy of the License at:
-  *
-  *        http://www.st.com/software_license_agreement_liberty_v2
-  *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
-  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  * See the License for the specific language governing permissions and
-  * limitations under the License.
+  * 本文件定义了STM32F407 RTOS项目的硬件抽象层：
+  * 1. LED控制宏定义（星火一号开发板）
+  * 2. 硬件初始化函数声明
+  * 3. 兼容性函数声明
+  * 
+  * 硬件平台：星火一号开发板 (STM32F407VGTx)
+  * LED引脚：GPIOF Pin 11
   *
   ******************************************************************************
   */
@@ -48,15 +43,13 @@
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-void TimingDelay_Decrement(void);
 void LED_Init(void);
-void Delay_Init(void);
-void Delay_ms(uint32_t ms);
 
-/* 新的高精度延时函数声明 */
-void Delay_ns(uint32_t ns);
-void Delay_us(uint32_t us);
-void Time_Init(void);
+/* 高精度延时函数声明 - 在time.h中定义 */
+/* void Delay_ns(uint32_t ns);   - 在time.h中声明 */
+/* void Delay_us(uint32_t us);   - 在time.h中声明 */
+/* void Delay_ms(uint32_t ms);   - 在time.h中声明 */
+/* void Time_Init(void);         - 在time.h中声明 */
 
 #endif /* __MAIN_H */
 

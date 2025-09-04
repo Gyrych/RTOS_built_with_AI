@@ -1,28 +1,25 @@
 /**
   ******************************************************************************
-  * @file    Project/STM32F4xx_StdPeriph_Templates/stm32f4xx_it.c 
-  * @author  MCD Application Team
-  * @version V1.8.0
-  * @date    04-November-2016
-  * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all exceptions handler and 
-  *          peripherals interrupt service routine.
+  * @file    stm32f4xx_it.c
+  * @author  RTOS Team
+  * @version V1.0.0
+  * @date    2025-01-14
+  * @brief   STM32F407 RTOS项目中断服务程序
+  *          提供RTOS系统所需的中断处理函数
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT 2016 STMicroelectronics</center></h2>
+  * 本文件实现了Tickless RTOS系统所需的关键中断处理函数：
+  * 1. SVC_Handler - 系统调用中断，用于RTOS任务调度
+  * 2. PendSV_Handler - 可挂起系统调用中断，用于上下文切换
+  * 3. SysTick_Handler - 保留为空，Tickless系统不使用
+  * 4. TIM2_IRQHandler - TIM2中断，用于高精度延时系统
   *
-  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
-  * You may not use this file except in compliance with the License.
-  * You may obtain a copy of the License at:
-  *
-  *        http://www.st.com/software_license_agreement_liberty_v2
-  *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
-  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  * See the License for the specific language governing permissions and
-  * limitations under the License.
+  * 中断优先级配置：
+  * - SVC: 0 (最高优先级)
+  * - PendSV: 15 (最低优先级)
+  * - TIM2: 3 (高优先级)
+  * - SysTick: 不使用 (Tickless架构)
   *
   ******************************************************************************
   */
@@ -142,10 +139,13 @@ void PendSV_Handler(void)
   * @brief  This function handles SysTick Handler.
   * @param  None
   * @retval None
+  * @note   Tickless RTOS系统不使用SysTick
+  *         此函数保留为空，避免系统异常
   */
 void SysTick_Handler(void)
 {
-  TimingDelay_Decrement();
+  /* Tickless RTOS - 不使用SysTick中断 */
+  /* 所有延时通过TIM2高精度定时器实现 */
 }
 
 /**

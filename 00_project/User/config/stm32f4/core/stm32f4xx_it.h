@@ -1,26 +1,21 @@
 /**
   ******************************************************************************
-  * @file    Project/STM32F4xx_StdPeriph_Templates/stm32f4xx_it.h 
-  * @author  MCD Application Team
-  * @version V1.8.0
-  * @date    04-November-2016
-  * @brief   This file contains the headers of the interrupt handlers.
+  * @file    stm32f4xx_it.h
+  * @author  RTOS Team
+  * @version V1.0.0
+  * @date    2025-01-14
+  * @brief   STM32F407 RTOS项目中断处理函数头文件
+  *          声明RTOS系统所需的中断处理函数
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT 2016 STMicroelectronics</center></h2>
+  * 本文件声明了Tickless RTOS系统所需的关键中断处理函数：
+  * 1. 系统异常处理函数 (NMI, HardFault, MemManage, BusFault, UsageFault)
+  * 2. RTOS核心中断处理函数 (SVC, PendSV)
+  * 3. 外设中断处理函数 (TIM2)
+  * 4. 兼容性中断处理函数 (SysTick - 保留但为空)
   *
-  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
-  * You may not use this file except in compliance with the License.
-  * You may obtain a copy of the License at:
-  *
-  *        http://www.st.com/software_license_agreement_liberty_v2
-  *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
-  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  * See the License for the specific language governing permissions and
-  * limitations under the License.
+  * 注意：这是一个Tickless RTOS系统，不使用SysTick周期性中断
   *
   ******************************************************************************
   */
