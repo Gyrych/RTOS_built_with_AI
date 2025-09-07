@@ -4,34 +4,44 @@
   * @author  RTOS Team
   * @version V1.0.0
   * @date    2025-01-14
-  * @brief   STM32F407 RTOS多任务演示程序
+  * @brief   STM32F407 RTOS双任务交替执行演示程序
   *          基于STM32F407标准库和自定义RTOS系统
-  *          集成TIM2高精度延时功能和UART1串口输出
+  *          实现任务主动挂起和恢复机制
   ******************************************************************************
   * @attention
   *
-  * 本程序演示了自定义RTOS系统的多任务调度功能：
-  * 1. 绿色LED闪烁任务 - PF11引脚，周期100ms
-  * 2. 红色LED闪烁任务 - PF12引脚，周期500ms
-  * 3. 串口打印任务 - UART1输出"Hellow rtos!"，周期1000ms
+  * 本程序演示了自定义RTOS系统的任务主动调度功能：
+  * 1. 绿色LED控制任务 - PF11引脚，主动挂起让红色LED任务执行
+  * 2. 红色LED控制任务 - PF12引脚，主动挂起让绿色LED任务执行
   * 
   * 硬件平台：星火一号开发板 (STM32F407VGTx)
   * LED引脚：绿色LED - PF11，红色LED - PF12
-  * 串口：UART1 - PA9(TX), PA10(RX)，波特率115200
+  * 任务调度：两个任务交替执行，不使用Delay_ms挂起
   *
   ******************************************************************************
   */
 #include "main.h"
 #include "../../02_rtos/core.h"
-#include "../../02_rtos/time.h"
 #include <stdio.h>
 
 /* 私有变量定义 - 已移除废弃的TimingDelay变量 */
+static task_t* green_led_task = NULL;
+static task_t* red_led_task = NULL;
 
 /* 示例任务函数声明 */
 void task_led_g_blink(void* arg);
 void task_led_r_blink(void* arg);
-void task_serial_print(void* arg);
+
+/* 简单延时函数 */
+void simple_delay(uint32_t count);
+
+/* UART和系统信息打印函数 */
+void UART1_Init(void);
+int fputc(int ch, FILE *f);
+int fgetc(FILE *f);
+int _write(int file, char *ptr, int len);
+int _read(int file, char *ptr, int len);
+void print_system_banner(void);
 
 /**
   * @brief  主函数
@@ -47,11 +57,11 @@ int main(void)
     LED_G_Init();
     LED_R_Init();
     
-    /* UART1初始化 */
+    /* UART1初始化 - 用于系统信息打印 */
     UART1_Init();
     
-    /* 高精度延时系统初始化 */
-    Time_Init();
+    /* 打印炫酷的系统启动横幅 */
+    print_system_banner();
     
     /* 配置中断优先级 - Tickless RTOS系统 */
     NVIC_SetPriority(SVCall_IRQn, 0);      /* SVC中断优先级设为最高 */
@@ -61,10 +71,9 @@ int main(void)
     /* RTOS初始化 */
     rtos_init();
     
-    /* 创建多个任务 */
-    task_create(task_led_g_blink, NULL, 1);    /* 高优先级绿色LED闪烁任务 */
-    task_create(task_led_r_blink, NULL, 2);    /* 中等优先级红色LED闪烁任务 */
-    task_create(task_serial_print, NULL, 3);   /* 低优先级串口打印任务 */
+    /* 创建两个LED控制任务 */
+    green_led_task = task_create(task_led_g_blink, NULL, 1);    /* 绿色LED控制任务 */
+    red_led_task = task_create(task_led_r_blink, NULL, 2);      /* 红色LED控制任务 */
     
     /* 启动RTOS调度器 */
     rtos_start();
@@ -81,7 +90,7 @@ int main(void)
 }
 
 /**
-  * @brief  绿色LED闪烁任务 - 周期100ms
+  * @brief  绿色LED控制任务 - 主动挂起让红色LED任务执行
   * @param  arg: 任务参数（未使用）
   * @retval None
   */
@@ -90,33 +99,21 @@ void task_led_g_blink(void* arg)
     while(1)
     {
         LED_G_ON();
-        Delay_ms(50);     /* 绿色LED亮50ms */
+        simple_delay(1000000);  /* 简单延时 */
         
         LED_G_OFF();
-        Delay_ms(50);     /* 绿色LED灭50ms，总周期100ms */
-    }
-}
-
-/**
-  * @brief  串口打印任务 - 定时1000ms输出"Hellow rtos!"
-  * @param  arg: 任务参数（未使用）
-  * @retval None
-  */
-void task_serial_print(void* arg)
-{
-    uint32_t counter = 0;
-    while(1)
-    {
-        /* 使用printf输出字符串 */
-        printf("Hellow rtos! Counter: %lu\r\n", counter++);
+        simple_delay(1000000);  /* 简单延时 */
         
-        /* 延时1000ms */
-        Delay_ms(1000);
+        /* 恢复红色LED任务，然后挂起自己 */
+        task_resume(red_led_task);
+        task_suspend(scheduler.current_task);
+        rtos_schedule();
     }
 }
 
+
 /**
-  * @brief  红色LED闪烁任务 - 周期500ms
+  * @brief  红色LED控制任务 - 主动挂起让绿色LED任务执行
   * @param  arg: 任务参数（未使用）
   * @retval None
   */
@@ -125,11 +122,27 @@ void task_led_r_blink(void* arg)
     while(1)
     {
         LED_R_ON();
-        Delay_ms(250);    /* 红色LED亮250ms */
+        simple_delay(1000000);  /* 简单延时 */
         
         LED_R_OFF();
-        Delay_ms(250);    /* 红色LED灭250ms，总周期500ms */
+        simple_delay(1000000);  /* 简单延时 */
+        
+        /* 恢复绿色LED任务，然后挂起自己 */
+        task_resume(green_led_task);
+        task_suspend(scheduler.current_task);
+        rtos_schedule();
     }
+}
+
+/**
+  * @brief  简单延时函数
+  * @param  count: 延时循环次数
+  * @retval None
+  */
+void simple_delay(uint32_t count)
+{
+    volatile uint32_t i;
+    for (i = 0; i < count; i++);
 }
 
 /**
@@ -227,6 +240,9 @@ void UART1_Init(void)
     
     /* 使能UART1 */
     USART_Cmd(USART1, ENABLE);
+    
+    /* 等待UART1发送完成 */
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
 }
 
 /**
@@ -245,6 +261,123 @@ int fputc(int ch, FILE *f)
     
     return ch;
 }
+
+/**
+  * @brief  fgetc重定向函数（nano.specs需要）
+  * @param  f: 文件指针（未使用）
+  * @retval 读取的字符
+  */
+int fgetc(FILE *f)
+{
+    /* 等待接收数据 */
+    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+    
+    /* 读取字符 */
+    return (int)USART_ReceiveData(USART1);
+}
+
+/**
+  * @brief  _write重定向函数（nano.specs需要）
+  * @param  file: 文件描述符
+  * @param  ptr: 数据指针
+  * @param  len: 数据长度
+  * @retval 写入的字节数
+  */
+int _write(int file, char *ptr, int len)
+{
+    int i;
+    for (i = 0; i < len; i++) {
+        /* 等待发送寄存器空 */
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        
+        /* 发送字符 */
+        USART_SendData(USART1, (uint8_t)ptr[i]);
+    }
+    return len;
+}
+
+/**
+  * @brief  _read重定向函数（nano.specs需要）
+  * @param  file: 文件描述符
+  * @param  ptr: 数据指针
+  * @param  len: 数据长度
+  * @retval 读取的字节数
+  */
+int _read(int file, char *ptr, int len)
+{
+    int i;
+    for (i = 0; i < len; i++) {
+        /* 等待接收数据 */
+        while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+        
+        /* 读取字符 */
+        ptr[i] = (char)USART_ReceiveData(USART1);
+    }
+    return len;
+}
+
+/**
+  * @brief  打印炫酷的系统启动横幅
+  * @param  None
+  * @retval None
+  */
+void print_system_banner(void)
+{
+    /* 清屏并设置颜色 */
+    printf("\033[2J\033[H");  /* 清屏并移动光标到左上角 */
+    
+    /* 打印ASCII艺术标题 */
+    printf("\033[1;31m");     /* 设置红色粗体 */
+    printf("    ████████╗██╗ ██████╗██╗  ██╗██╗     ███████╗███████╗███████╗\r\n");
+    printf("    ╚══██╔══╝██║██╔════╝██║ ██╔╝██║     ██╔════╝██╔════╝██╔════╝\r\n");
+    printf("       ██║   ██║██║     █████╔╝ ██║     █████╗  ███████╗███████╗\r\n");
+    printf("       ██║   ██║██║     ██╔═██╗ ██║     ██╔══╝  ╚════██║╚════██║\r\n");
+    printf("       ██║   ██║╚██████╗██║  ██╗███████╗███████╗███████║███████║\r\n");
+    printf("       ╚═╝   ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚══════╝\r\n");
+    
+    printf("\033[1;33m");     /* 设置黄色粗体 */
+    printf("    ██████╗ ████████╗ ██████╗ ███████╗\r\n");
+    printf("    ██╔══██╗╚══██╔══╝██╔═══██╗██╔════╝\r\n");
+    printf("    ██████╔╝   ██║   ██║   ██║███████╗\r\n");
+    printf("    ██╔══██╗   ██║   ██║   ██║╚════██║\r\n");
+    printf("    ██║  ██║   ██║   ╚██████╔╝███████║\r\n");
+    printf("    ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚══════╝\r\n");
+    
+    /* 打印装饰线 */
+    printf("\033[1;36m");     /* 设置青色 */
+    printf("    ═══════════════════════════════════════════════════════════\r\n");
+    
+    /* 打印系统信息 */
+    printf("\033[1;32m");     /* 设置绿色 */
+    printf("    🖥️  System: STM32F407VGTx @ 168MHz\r\n");
+    printf("\033[1;35m");     /* 设置紫色 */
+    printf("    🏗️  Architecture: Cortex-M4 with FPU\r\n");
+    printf("\033[1;34m");     /* 设置蓝色 */
+    printf("    ⚙️  RTOS: Custom Tickless Real-Time Operating System\r\n");
+    printf("\033[1;37m");     /* 设置白色 */
+    printf("    🔄 Tasks: 2 LED Control Tasks (Cooperative Scheduling)\r\n");
+    
+    /* 打印装饰线 */
+    printf("\033[1;36m");     /* 设置青色 */
+    printf("    ═══════════════════════════════════════════════════════════\r\n");
+    
+    /* 打印启动信息 */
+    printf("\033[1;32m");     /* 设置绿色 */
+    printf("    ✅ [INFO] System initialized successfully!\r\n");
+    printf("\033[1;33m");     /* 设置黄色 */
+    printf("    🚀 [INFO] Starting dual LED cooperative tasks...\r\n");
+    printf("\033[1;37m");     /* 设置白色 */
+    printf("    💡 [INFO] Green LED: PF11 | Red LED: PF12\r\n");
+    
+    /* 打印底部装饰 */
+    printf("\033[1;31m");     /* 设置红色 */
+    printf("    ████████████████████████████████████████████████████████████\r\n");
+    printf("\033[0m");        /* 重置所有属性 */
+    
+    /* 添加一些延时让用户看到启动信息 */
+    simple_delay(2000000);
+}
+
 
 /* Delay_Init函数已移除 - 请使用Time_Init()替代 */
 
