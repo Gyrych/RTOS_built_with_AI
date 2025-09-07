@@ -63,6 +63,13 @@ int main(void)
     /* 打印炫酷的系统启动横幅 */
     print_system_banner();
     
+    /* 打印调试配置信息 */
+    printf("\r\n=== Debug Configuration ===\r\n");
+    printf("RTOS Debug Enabled: %s\r\n", RTOS_DEBUG_ENABLE ? "YES" : "NO");
+    printf("RTOS Debug Level: %d\r\n", RTOS_DEBUG_LEVEL);
+    printf("Debug Levels: 0=Off, 1=Basic, 2=Detailed, 3=Complete\r\n");
+    printf("=============================\r\n");
+    
     /* 配置中断优先级 - Tickless RTOS系统 */
     NVIC_SetPriority(SVCall_IRQn, 0);      /* SVC中断优先级设为最高 */
     NVIC_SetPriority(PendSV_IRQn, 15);     /* PendSV中断优先级设为最低 */
@@ -71,11 +78,31 @@ int main(void)
     /* RTOS初始化 */
     rtos_init();
     
+    /* 打印调度器信息 */
+    rtos_debug_print_scheduler_info();
+    
     /* 创建两个LED控制任务 */
+    printf("\r\n=== Creating LED Control Tasks ===\r\n");
     green_led_task = task_create(task_led_g_blink, NULL, 1);    /* 绿色LED控制任务 */
     red_led_task = task_create(task_led_r_blink, NULL, 2);      /* 红色LED控制任务 */
     
+    /* 打印任务创建后的调度器信息 */
+    printf("\r\n=== After Task Creation ===\r\n");
+    rtos_debug_print_scheduler_info();
+    
+    /* 打印任务详细信息 */
+    if (green_led_task) {
+        printf("\r\n=== Green LED Task Info ===\r\n");
+        rtos_debug_print_task_info(green_led_task);
+    }
+    
+    if (red_led_task) {
+        printf("\r\n=== Red LED Task Info ===\r\n");
+        rtos_debug_print_task_info(red_led_task);
+    }
+    
     /* 启动RTOS调度器 */
+    printf("\r\n=== Starting RTOS Scheduler ===\r\n");
     rtos_start();
     
     /* 程序不会执行到这里，因为RTOS会接管控制权 */
@@ -96,18 +123,27 @@ int main(void)
   */
 void task_led_g_blink(void* arg)
 {
+    uint32_t cycle_count = 0;
+    
+    printf("\r\n[GREEN-TASK] Green LED task started\r\n");
+    
     while(1)
     {
+        printf("[GREEN-TASK] Cycle %d: Turning ON green LED\r\n", cycle_count);
         LED_G_ON();
         simple_delay(1000000);  /* 简单延时 */
         
+        printf("[GREEN-TASK] Cycle %d: Turning OFF green LED\r\n", cycle_count);
         LED_G_OFF();
         simple_delay(1000000);  /* 简单延时 */
         
+        printf("[GREEN-TASK] Cycle %d: Resuming red task and suspending self\r\n", cycle_count);
         /* 恢复红色LED任务，然后挂起自己 */
         task_resume(red_led_task);
-        task_suspend(scheduler.current_task);
+        task_suspend(green_led_task);  /* 直接挂起绿色任务，而不是current_task */
         rtos_schedule();
+        
+        cycle_count++;
     }
 }
 
@@ -119,18 +155,27 @@ void task_led_g_blink(void* arg)
   */
 void task_led_r_blink(void* arg)
 {
+    uint32_t cycle_count = 0;
+    
+    printf("\r\n[RED-TASK] Red LED task started\r\n");
+    
     while(1)
     {
+        printf("[RED-TASK] Cycle %d: Turning ON red LED\r\n", cycle_count);
         LED_R_ON();
         simple_delay(1000000);  /* 简单延时 */
         
+        printf("[RED-TASK] Cycle %d: Turning OFF red LED\r\n", cycle_count);
         LED_R_OFF();
         simple_delay(1000000);  /* 简单延时 */
         
+        printf("[RED-TASK] Cycle %d: Resuming green task and suspending self\r\n", cycle_count);
         /* 恢复绿色LED任务，然后挂起自己 */
         task_resume(green_led_task);
-        task_suspend(scheduler.current_task);
+        task_suspend(red_led_task);  /* 直接挂起红色任务，而不是current_task */
         rtos_schedule();
+        
+        cycle_count++;
     }
 }
 

@@ -2,8 +2,33 @@
 #define __CORE_H__
 
 #include <stdint.h>
+#include <stdio.h>
 
 /* RTOS核心头文件 - 定义任务管理和调度器接口 */
+
+/* 调试功能配置 */
+#define RTOS_DEBUG_ENABLE 1    /* 启用RTOS调试功能 */
+#define RTOS_DEBUG_LEVEL  2    /* 调试级别: 0=关闭, 1=基本, 2=详细, 3=完整 */
+
+#if RTOS_DEBUG_ENABLE
+    #define RTOS_DEBUG_PRINT(level, format, ...) \
+        do { \
+            if (level <= RTOS_DEBUG_LEVEL) { \
+                printf("[RTOS-DEBUG] " format "\r\n", ##__VA_ARGS__); \
+            } \
+        } while(0)
+    
+    #define RTOS_DEBUG_PRINT_TASK(level, task, format, ...) \
+        do { \
+            if (level <= RTOS_DEBUG_LEVEL && task) { \
+                printf("[RTOS-DEBUG] Task@%p(P%d,S%d) " format "\r\n", \
+                       task, task->priority, task->state, ##__VA_ARGS__); \
+            } \
+        } while(0)
+#else
+    #define RTOS_DEBUG_PRINT(level, format, ...)
+    #define RTOS_DEBUG_PRINT_TASK(level, task, format, ...)
+#endif
 
 #define MAX_TASKS 32         /* 最大任务数量 */
 #define MAX_PRIORITY 31     /* 最大优先级值 (0最高, 31最低) */
@@ -44,5 +69,11 @@ task_t* find_highest_priority_task(void);  /* 查找最高优先级任务 */
 
 void __attribute__((naked)) pend_sv_handler(void);  /* PendSV中断处理函数 */
 void __attribute__((naked)) svc_handler(void);       /* SVC中断处理函数 */
+
+/* 调试相关函数 */
+void rtos_debug_print_scheduler_info(void);          /* 打印调度器信息 */
+void rtos_debug_print_task_info(task_t* task);       /* 打印任务信息 */
+void rtos_debug_print_stack_usage(task_t* task);     /* 打印堆栈使用情况 */
+const char* rtos_debug_get_state_name(uint8_t state); /* 获取状态名称 */
 
 #endif

@@ -13,26 +13,43 @@ static void idle_task(void* arg) {
 
 /* RTOS初始化函数 */
 void rtos_init(void) {
+    RTOS_DEBUG_PRINT(1, "=== RTOS Initialization Started ===");
+    
     memset(&scheduler, 0, sizeof(scheduler_t));  /* 清空调度器结构体 */
+    RTOS_DEBUG_PRINT(2, "Scheduler structure cleared");
     
     task_create(idle_task, NULL, MAX_PRIORITY);  /* 创建空闲任务 */
+    RTOS_DEBUG_PRINT(1, "Idle task created with priority %d", MAX_PRIORITY);
+    
+    RTOS_DEBUG_PRINT(1, "=== RTOS Initialization Completed ===");
+    RTOS_DEBUG_PRINT(2, "Total tasks: %d", scheduler.task_count);
 }
 
 /* 启动RTOS调度 */
 void rtos_start(void) {
+    RTOS_DEBUG_PRINT(1, "=== RTOS Starting ===");
+    
     if (scheduler.task_count == 0) {
+        RTOS_DEBUG_PRINT(1, "ERROR: No tasks available for scheduling");
         return;  /* 没有任务可调度 */
     }
+    
+    RTOS_DEBUG_PRINT(2, "Total tasks available: %d", scheduler.task_count);
     
     /* 找到第一个要运行的任务 */
     task_t* first_task = find_highest_priority_task();
     if (first_task == NULL) {
+        RTOS_DEBUG_PRINT(1, "ERROR: No ready tasks found");
         return;  /* 没有就绪任务 */
     }
+    
+    RTOS_DEBUG_PRINT_TASK(1, first_task, "Selected as first task to run");
     
     /* 设置当前任务 */
     scheduler.current_task = first_task;
     first_task->state = TASK_RUNNING;
+    
+    RTOS_DEBUG_PRINT(1, "=== Starting first task execution ===");
     
     /* 直接调用第一个任务，不使用复杂的上下文切换 */
     first_task->task_func(first_task->arg);
@@ -40,7 +57,11 @@ void rtos_start(void) {
 
 /* 创建新任务 */
 task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
+    RTOS_DEBUG_PRINT(2, "Creating new task: func=%p, arg=%p, priority=%d", func, arg, priority);
+    
     if (scheduler.task_count >= MAX_TASKS || priority > MAX_PRIORITY) {
+        RTOS_DEBUG_PRINT(1, "ERROR: Task creation failed - task_count=%d, priority=%d", 
+                        scheduler.task_count, priority);
         return NULL;  /* 任务数量或优先级超出限制 */
     }
     
@@ -52,6 +73,8 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
     task->arg = arg;             /* 设置任务参数 */
     task->priority = priority;   /* 设置任务优先级 */
     task->state = TASK_READY;    /* 设置任务状态为就绪 */
+    
+    RTOS_DEBUG_PRINT(2, "Task control block allocated at %p", task);
     
     /* 初始化任务堆栈 - 模拟异常返回时的堆栈帧 */
     /* 确保堆栈8字节对齐 */
@@ -81,8 +104,14 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
     /* 堆栈指针应该指向堆栈帧的顶部（第一个寄存器） */
     task->stack_ptr = stack_top;
     
+    RTOS_DEBUG_PRINT(3, "Stack initialized: stack_ptr=%p, stack_size=%d", 
+                    task->stack_ptr, STACK_SIZE);
+    
     scheduler.tasks[scheduler.task_count] = task;
     scheduler.task_count++;
+    
+    RTOS_DEBUG_PRINT(1, "Task created successfully: task_count=%d", scheduler.task_count);
+    RTOS_DEBUG_PRINT_TASK(2, task, "Task created and ready");
     
     return task;
 }
@@ -90,14 +119,24 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
 /* 挂起指定任务 */
 void task_suspend(task_t* task) {
     if (task) {
+        RTOS_DEBUG_PRINT_TASK(2, task, "Suspending task");
         task->state = TASK_SUSPENDED;  /* 将任务状态设置为挂起 */
+        RTOS_DEBUG_PRINT_TASK(2, task, "Task suspended");
+    } else {
+        RTOS_DEBUG_PRINT(1, "ERROR: Attempting to suspend NULL task");
     }
 }
 
 /* 恢复挂起的任务 */
 void task_resume(task_t* task) {
     if (task && task->state == TASK_SUSPENDED) {
+        RTOS_DEBUG_PRINT_TASK(2, task, "Resuming task");
         task->state = TASK_READY;  /* 将任务状态恢复为就绪 */
+        RTOS_DEBUG_PRINT_TASK(2, task, "Task resumed");
+    } else if (task) {
+        RTOS_DEBUG_PRINT_TASK(1, task, "WARNING: Attempting to resume non-suspended task");
+    } else {
+        RTOS_DEBUG_PRINT(1, "ERROR: Attempting to resume NULL task");
     }
 }
 
@@ -122,13 +161,25 @@ task_t* find_highest_priority_task(void) {
     task_t* highest_priority_task = NULL;
     uint32_t highest_priority = MAX_PRIORITY + 1;  /* 初始化为比最大优先级更大的值 */
     
+    RTOS_DEBUG_PRINT(3, "Searching for highest priority ready task...");
+    
     /* 遍历所有任务，找到优先级最高的就绪任务 */
     for (uint8_t i = 0; i < scheduler.task_count; i++) {
         task_t* task = scheduler.tasks[i];
+        RTOS_DEBUG_PRINT(3, "Checking task[%d]: %p, state=%d, priority=%d", 
+                        i, task, task->state, task->priority);
+        
         if (task->state == TASK_READY && task->priority < highest_priority) {
             highest_priority = task->priority;
             highest_priority_task = task;
+            RTOS_DEBUG_PRINT(3, "Found better candidate: priority=%d", task->priority);
         }
+    }
+    
+    if (highest_priority_task) {
+        RTOS_DEBUG_PRINT_TASK(2, highest_priority_task, "Selected as highest priority ready task");
+    } else {
+        RTOS_DEBUG_PRINT(2, "No ready tasks found");
     }
     
     return highest_priority_task;
@@ -136,18 +187,29 @@ task_t* find_highest_priority_task(void) {
 
 /* 调度器核心函数 - 执行任务切换 */
 void rtos_schedule(void) {
+    RTOS_DEBUG_PRINT(2, "=== Task Scheduling Requested ===");
+    
     task_t* next_task = find_highest_priority_task();  /* 找到最高优先级的就绪任务 */
     
     if (next_task && next_task != scheduler.current_task) {
+        RTOS_DEBUG_PRINT(1, "Context switch required");
+        
         if (scheduler.current_task) {
+            RTOS_DEBUG_PRINT_TASK(2, scheduler.current_task, "Current task -> READY");
             scheduler.current_task->state = TASK_READY;  /* 当前任务状态改为就绪 */
         }
         
+        RTOS_DEBUG_PRINT_TASK(2, next_task, "Next task -> RUNNING");
         next_task->state = TASK_RUNNING;      /* 新任务状态改为运行 */
         scheduler.current_task = next_task;   /* 更新当前运行任务 */
         
+        RTOS_DEBUG_PRINT(2, "Triggering PendSV for context switch");
         /* 触发PendSV中断进行上下文切换 */
         SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+    } else if (next_task == scheduler.current_task) {
+        RTOS_DEBUG_PRINT(2, "No context switch needed - same task");
+    } else {
+        RTOS_DEBUG_PRINT(1, "WARNING: No ready tasks found for scheduling");
     }
 }
 
@@ -163,34 +225,9 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "ldr r2, [r1, #132]\n"          /* 加载current_task指针 (偏移量132) */
         "str r0, [r2, #8]\n"            /* 保存堆栈指针到当前任务的stack_ptr */
         
-        /* 查找下一个要运行的任务 - 使用内联汇编实现 */
-        "ldr r3, [r1, #128]\n"          /* 加载task_count (偏移量128) */
-        "mov r4, #0\n"                  /* 初始化循环计数器 */
-        "mov r5, #32\n"                 /* 最大优先级值 */
-        "mov r6, #0\n"                  /* 最高优先级任务指针 */
-        
-        "find_loop:\n"
-        "cmp r4, r3\n"                  /* 检查是否遍历完所有任务 */
-        "bge find_done\n"               /* 如果遍历完，跳转到完成 */
-        
-        "ldr r7, [r1, r4, lsl #2]\n"    /* 加载tasks[i] (偏移量0) */
-        "ldrb r8, [r7, #20]\n"          /* 加载任务状态 */
-        "cmp r8, #0\n"                  /* 检查是否为TASK_READY */
-        "bne find_next\n"               /* 如果不是就绪状态，跳过 */
-        
-        "ldr r8, [r7, #16]\n"           /* 加载任务优先级 */
-        "cmp r8, r5\n"                  /* 比较优先级 */
-        "bge find_next\n"               /* 如果优先级不更高，跳过 */
-        
-        "mov r5, r8\n"                  /* 更新最高优先级 */
-        "mov r6, r7\n"                  /* 更新最高优先级任务指针 */
-        
-        "find_next:\n"
-        "add r4, r4, #1\n"              /* 增加循环计数器 */
-        "b find_loop\n"                 /* 继续循环 */
-        
-        "find_done:\n"
-        "str r6, [r1, #132]\n"          /* 保存新任务指针到current_task (偏移量132) */
+        /* 注意：此时current_task已经指向下一个要运行的任务 */
+        /* 直接使用current_task作为新任务指针 */
+        "mov r6, r2\n"                  /* 将current_task指针复制到r6 */
         
         /* 恢复新任务的上下文 */
         "ldr r0, [r6, #8]\n"            /* 加载新任务的堆栈指针 */
@@ -224,4 +261,96 @@ void __attribute__((naked)) svc_handler(void) {
         "str r1, [r0]\n"              /* 触发PendSV中断 */
         "bx lr\n"                     /* 返回 */
     );
+}
+
+/* 调试辅助函数实现 */
+
+/**
+ * @brief  获取任务状态名称
+ * @param  state: 任务状态
+ * @retval 状态名称字符串
+ */
+const char* rtos_debug_get_state_name(uint8_t state) {
+    switch (state) {
+        case TASK_READY:    return "READY";
+        case TASK_RUNNING:  return "RUNNING";
+        case TASK_SUSPENDED: return "SUSPENDED";
+        default:            return "UNKNOWN";
+    }
+}
+
+/**
+ * @brief  打印调度器信息
+ * @param  None
+ * @retval None
+ */
+void rtos_debug_print_scheduler_info(void) {
+    RTOS_DEBUG_PRINT(1, "=== Scheduler Information ===");
+    RTOS_DEBUG_PRINT(1, "Total tasks: %d", scheduler.task_count);
+    RTOS_DEBUG_PRINT(1, "Current task: %p", scheduler.current_task);
+    
+    if (scheduler.current_task) {
+        RTOS_DEBUG_PRINT_TASK(1, scheduler.current_task, "Current running task");
+    }
+    
+    RTOS_DEBUG_PRINT(1, "Task list:");
+    for (uint8_t i = 0; i < scheduler.task_count; i++) {
+        task_t* task = scheduler.tasks[i];
+        if (task) {
+            RTOS_DEBUG_PRINT(1, "  [%d] %p: Priority=%d, State=%s", 
+                            i, task, task->priority, rtos_debug_get_state_name(task->state));
+        }
+    }
+    RTOS_DEBUG_PRINT(1, "=== End Scheduler Information ===");
+}
+
+/**
+ * @brief  打印任务详细信息
+ * @param  task: 任务指针
+ * @retval None
+ */
+void rtos_debug_print_task_info(task_t* task) {
+    if (!task) {
+        RTOS_DEBUG_PRINT(1, "Task info: NULL task");
+        return;
+    }
+    
+    RTOS_DEBUG_PRINT(1, "=== Task Information ===");
+    RTOS_DEBUG_PRINT(1, "Task address: %p", task);
+    RTOS_DEBUG_PRINT(1, "Task function: %p", task->task_func);
+    RTOS_DEBUG_PRINT(1, "Task argument: %p", task->arg);
+    RTOS_DEBUG_PRINT(1, "Priority: %d", task->priority);
+    RTOS_DEBUG_PRINT(1, "State: %s", rtos_debug_get_state_name(task->state));
+    RTOS_DEBUG_PRINT(1, "Stack pointer: %p", task->stack_ptr);
+    RTOS_DEBUG_PRINT(1, "Stack base: %p", task->stack);
+    RTOS_DEBUG_PRINT(1, "Stack size: %d bytes", STACK_SIZE * sizeof(uint32_t));
+    RTOS_DEBUG_PRINT(1, "=== End Task Information ===");
+}
+
+/**
+ * @brief  打印堆栈使用情况
+ * @param  task: 任务指针
+ * @retval None
+ */
+void rtos_debug_print_stack_usage(task_t* task) {
+    if (!task) {
+        RTOS_DEBUG_PRINT(1, "Stack usage: NULL task");
+        return;
+    }
+    
+    /* 计算堆栈使用情况 */
+    uint32_t stack_base = (uint32_t)task->stack;
+    uint32_t stack_top = (uint32_t)task->stack_ptr;
+    uint32_t stack_size = STACK_SIZE * sizeof(uint32_t);
+    uint32_t used_bytes = stack_base + stack_size - stack_top;
+    uint32_t used_percent = (used_bytes * 100) / stack_size;
+    
+    RTOS_DEBUG_PRINT(1, "=== Stack Usage for Task %p ===", task);
+    RTOS_DEBUG_PRINT(1, "Stack base: 0x%08X", stack_base);
+    RTOS_DEBUG_PRINT(1, "Stack top:  0x%08X", stack_top);
+    RTOS_DEBUG_PRINT(1, "Stack size: %d bytes", stack_size);
+    RTOS_DEBUG_PRINT(1, "Used:       %d bytes (%d%%)", used_bytes, used_percent);
+    RTOS_DEBUG_PRINT(1, "Free:       %d bytes (%d%%)", 
+                    stack_size - used_bytes, 100 - used_percent);
+    RTOS_DEBUG_PRINT(1, "=== End Stack Usage ===");
 }

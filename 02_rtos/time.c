@@ -149,14 +149,22 @@ static void tim2_stop_delay(void)
   */
 void Time_Init(void)
 {
+    RTOS_DEBUG_PRINT(1, "=== Time System Initialization Started ===");
+    
     /* 配置TIM2定时器 */
     tim2_config();
+    RTOS_DEBUG_PRINT(2, "TIM2 timer configured");
     
     /* 初始化延时控制结构体 */
     delay_ctrl.state = DELAY_IDLE;
     delay_ctrl.target_count = 0;
     delay_ctrl.waiting_task = NULL;
     delay_start_count = 0;
+    
+    RTOS_DEBUG_PRINT(1, "Delay control structure initialized");
+    RTOS_DEBUG_PRINT(2, "TIM2 clock frequency: %d Hz", TIM2_CLOCK_FREQ);
+    RTOS_DEBUG_PRINT(2, "Minimum delay: %d ns", DELAY_MIN_NS);
+    RTOS_DEBUG_PRINT(1, "=== Time System Initialization Completed ===");
 }
 
 /**
@@ -244,17 +252,22 @@ void Delay_ms(uint32_t ms)
 {
     uint32_t ticks;
     
+    RTOS_DEBUG_PRINT(3, "Delay_ms called: %d ms", ms);
+    
     /* 参数检查 */
     if (ms == 0) {
+        RTOS_DEBUG_PRINT(3, "Delay_ms: zero delay, returning");
         return;
     }
     
     /* 转换为时钟周期数 */
     ticks = MS_TO_TICKS(ms);
+    RTOS_DEBUG_PRINT(3, "Delay_ms: %d ms = %d ticks", ms, ticks);
     
     /* 检查是否超出最大延时范围 */
     if (ticks > 0xFFFFFFF0) {  /* 留一些余量避免溢出 */
         ticks = 0xFFFFFFF0;
+        RTOS_DEBUG_PRINT(2, "Delay_ms: ticks limited to 0xFFFFFFF0");
     }
     
     /* 启动延时 */
@@ -268,16 +281,25 @@ void Delay_ms(uint32_t ms)
   */
 void TIM2_IRQHandler_Internal(void)
 {
+    RTOS_DEBUG_PRINT(3, "TIM2 interrupt triggered");
+    
     /* 检查TIM2比较中断 */
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
+        RTOS_DEBUG_PRINT(3, "TIM2 CC1 interrupt detected");
+        
         /* 清除中断标志 */
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
         
         /* 检查是否在延时状态 */
         if (delay_ctrl.state == DELAY_ACTIVE) {
+            RTOS_DEBUG_PRINT(2, "Delay completed, resuming task");
             /* 延时完成，停止延时 */
             tim2_stop_delay();
+        } else {
+            RTOS_DEBUG_PRINT(2, "TIM2 interrupt but no active delay");
         }
+    } else {
+        RTOS_DEBUG_PRINT(2, "TIM2 interrupt but not CC1");
     }
 }
 
