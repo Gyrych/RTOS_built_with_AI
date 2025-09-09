@@ -96,8 +96,8 @@ void rtos_start(void) {
 
     RTOS_DEBUG_PRINT(1, "=== Starting first task execution ===");
 
-    /* 直接调用第一个任务，不使用复杂的上下文切换 */
-    first_task->task_func(first_task->arg);
+    /* 通过 SVC 1 启动首任务：在 SVC 中设置 PSP 并异常返回至线程态 */
+    __asm volatile("svc %0" :: "I"(SVC_START_FIRST_TASK));
 }
 
 /* 创建新任务 */
@@ -232,6 +232,12 @@ task_t* find_highest_priority_task(void) {
 
 /* 调度器核心函数 - 执行任务切换 */
 void rtos_schedule(void) {
+    /* 线程态让出：通过 SVC 0 进入内核调度路径 */
+    __asm volatile("svc %0" :: "I"(SVC_YIELD));
+}
+
+/* 进行一次调度决策，返回是否需要上下文切换（1=需要，0=不需要） */
+int rtos_schedule_decide_next(void) {
     RTOS_DEBUG_PRINT(2, "=== Task Scheduling Requested ===");
 
     task_t* next_task = find_highest_priority_task();  /* 找到最高优先级的就绪任务 */
@@ -247,18 +253,26 @@ void rtos_schedule(void) {
         RTOS_DEBUG_PRINT_TASK(2, next_task, "Next task -> RUNNING");
         next_task->state = TASK_RUNNING;      /* 新任务状态改为运行 */
 
-        /* 不在这里改变pxCurrentTCB，改为设置pxNextTCB并触发PendSV */
+        /* 设置下一个任务，由 PendSV 完成实际切换与 pxCurrentTCB 更新 */
         pxNextTCB = next_task;
-        scheduler.current_task = next_task;   /* 保持scheduler同步 */
-
-        RTOS_DEBUG_PRINT(2, "Triggering PendSV for context switch");
-        /* 触发PendSV中断进行上下文切换 */
-        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+        return 1;
     } else if (next_task == pxCurrentTCB) {
         RTOS_DEBUG_PRINT(2, "No context switch needed - same task");
+        return 0;
     } else {
         RTOS_DEBUG_PRINT(1, "WARNING: No ready tasks found for scheduling");
+        return 0;
     }
+}
+
+/* 在中断环境中请求上下文切换：仅做决策并置位 PendSV */
+void rtos_request_context_switch_from_isr(void) {
+    rtos_enter_critical();
+    int need = rtos_schedule_decide_next();
+    if (need) {
+        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    }
+    rtos_exit_critical();
 }
 
 /* PendSV中断处理函数 - 执行实际的上下文切换 */
@@ -270,28 +284,27 @@ void __attribute__((naked)) pend_sv_handler(void) {
         /* 保存r4-r11到当前任务堆栈 */
         "STMDB r0!, {r4-r11} \n"       /* r0更新为新的PSP */
 
-        /* 将更新后的PSP存入pxCurrentTCB->stack_ptr */
+        /* 将更新后的PSP存入pxCurrentTCB->stack_ptr（偏移0） */
         "LDR r3, =pxCurrentTCB \n"
         "LDR r2, [r3] \n"              /* r2 = pxCurrentTCB */
-        "STR r0, [r2] \n"              /* pxCurrentTCB->stack_ptr = r0 */
+        "STR r0, [r2, #0] \n"
 
-        /* 用pxNextTCB作为下一个要运行的任务 */
+        /* 读取pxNextTCB并加载其stack_ptr */
         "LDR r3, =pxNextTCB \n"
         "LDR r2, [r3] \n"              /* r2 = pxNextTCB */
+        "LDR r0, [r2, #0] \n"          /* r0 = pxNextTCB->stack_ptr */
 
-        /* 从新任务的TCB中加载其stack_ptr */
-        "LDR r0, [r2] \n"              /* r0 = pxNextTCB->stack_ptr */
-
-        /* 恢复r4-r11 */
+        /* 恢复r4-r11并更新PSP */
         "LDMIA r0!, {r4-r11} \n"
         "MSR PSP, r0 \n"
         "ISB \n"                       /* 内存屏障 */
 
-        /* 更新pxCurrentTCB = pxNextTCB（在全局C变量中） */
+        /* 更新pxCurrentTCB = pxNextTCB */
         "LDR r3, =pxCurrentTCB \n"
-        "LDR r1, =pxNextTCB \n"
-        "LDR r0, [r1] \n"
-        "STR r0, [r3] \n"
+        "STR r2, [r3] \n"
+
+        /* 调用C函数以同步scheduler.current_task等状态 */
+        "BL rtos_on_context_switch_completed \n"
 
         "BX lr \n"                     /* 返回，自动恢复剩余的寄存器 */
     );
@@ -300,25 +313,52 @@ void __attribute__((naked)) pend_sv_handler(void) {
 /* SVC中断处理函数 - 处理系统调用 */
 void __attribute__((naked)) svc_handler(void) {
     __asm volatile(
-        "tst lr, #4\n"                 /* 检查使用的是主堆栈还是进程堆栈 */
-        "ite eq\n"                     /* if-then-else指令 */
-        "mrseq r0, msp\n"              /* 如果使用主堆栈，读取MSP */
-        "mrsne r0, psp\n"              /* 如果使用进程堆栈，读取PSP */
+        /* 解码SVC号 */
+        "tst lr, #4\n"
+        "ite eq\n"
+        "mrseq r0, msp\n"
+        "mrsne r0, psp\n"
+        "ldr r1, [r0, #24]\n"         /* 堆栈中的返回PC */
+        "ldrb r1, [r1, #-2]\n"        /* SVC立即数 */
 
-        "ldr r1, [r0, #24]\n"         /* 从堆栈中加载PC值（SVC调用地址） */
-        "ldrb r1, [r1, #-2]\n"        /* 读取SVC指令的操作数 */
+        /* 分派到SVC 0/1 */
+        "cmp r1, #0\n"
+        "beq svc_yield\n"
+        "cmp r1, #1\n"
+        "beq svc_start_first\n"
+        "bx lr\n"
 
-        "cmp r1, #0\n"                /* 检查SVC编号 */
-        "beq schedule\n"              /* 如果SVC 0，跳转到调度处理 */
+        "svc_yield:\n"
+        "bl rtos_schedule_decide_next\n"  /* r0=是否需要切换 */
+        "cmp r0, #0\n"
+        "beq svc_exit\n"
+        "ldr r0, =0xE000ED04\n"
+        "ldr r1, =0x10000000\n"
+        "str r1, [r0]\n"               /* 触发PendSV */
+        "b svc_exit\n"
 
-        "bx lr\n"                     /* 返回，不处理其他SVC调用 */
+        "svc_start_first:\n"
+        /* 从pxCurrentTCB->stack_ptr恢复R4-R11，设置PSP并异常返回到线程态 */
+        "ldr r3, =pxCurrentTCB\n"
+        "ldr r3, [r3]\n"               /* r3 = pxCurrentTCB */
+        "ldr r0, [r3, #0]\n"           /* r0 = stack_ptr */
+        "ldmia r0!, {r4-r11}\n"
+        "msr psp, r0\n"
+        "isb\n"
+        "ldr r0, =0xFFFFFFFD\n"        /* 返回到线程模式，使用PSP */
+        "bx r0\n"
 
-        "schedule:\n"                 /* 调度处理标签 */
-        "ldr r0, =0xE000ED04\n"       /* 加载ICSR寄存器地址 */
-        "ldr r1, =0x10000000\n"       /* PendSV挂起位 */
-        "str r1, [r0]\n"              /* 触发PendSV中断 */
-        "bx lr\n"                     /* 返回 */
+        "svc_exit:\n"
+        "bx lr\n"
+        :
+        :
+        : "r0", "r1", "r3"
     );
+}
+
+/* 在上下文切换完成后由PendSV调用，用于同步C层面的状态（如scheduler.current_task） */
+void rtos_on_context_switch_completed(void) {
+    scheduler.current_task = (task_t*)pxCurrentTCB;
 }
 
 /* 调试辅助函数实现 */

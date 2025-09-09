@@ -57,17 +57,17 @@ static void tim2_config(void)
 {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
     TIM_OCInitTypeDef TIM_OCInitStructure;
-    
+
     /* 使能TIM2时钟 */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    
+
     /* 配置TIM2时基单元 */
     TIM_TimeBaseStructure.TIM_Period = 0xFFFFFFFF;        /* 32位最大值 */
     TIM_TimeBaseStructure.TIM_Prescaler = 0;              /* 无分频，直接使用84MHz */
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-    
+
     /* 配置TIM2输出比较通道1 */
     TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_Timing;   /* 输出比较模式：定时模式 */
     TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Disable; /* 禁用输出 */
@@ -75,14 +75,14 @@ static void tim2_config(void)
     TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
     TIM_OC1Init(TIM2, &TIM_OCInitStructure);
     TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Disable);
-    
+
     /* 使能TIM2比较中断 */
     TIM_ITConfig(TIM2, TIM_IT_CC1, ENABLE);
-    
+
     /* 设置TIM2中断优先级 */
     NVIC_SetPriority(TIM2_IRQn, 3);  /* 优先级高于PendSV(15)，低于SVC(0) */
     NVIC_EnableIRQ(TIM2_IRQn);
-    
+
     /* 启动TIM2 */
     TIM_Cmd(TIM2, ENABLE);
 }
@@ -95,28 +95,28 @@ static void tim2_config(void)
 static void tim2_start_delay(uint32_t ticks)
 {
     uint32_t current_count;
-    
+
     /* 获取当前计数值 */
     current_count = TIM_GetCounter(TIM2);
-    
+
     /* 计算目标计数值 */
     delay_ctrl.target_count = current_count + ticks;
-    
+
     /* 设置比较值 */
     TIM_SetCompare1(TIM2, delay_ctrl.target_count);
-    
+
     /* 设置延时状态 */
     delay_ctrl.state = DELAY_ACTIVE;
     delay_ctrl.waiting_task = (void*)scheduler.current_task;
-    
+
     /* 挂起当前任务 */
     if (delay_ctrl.waiting_task) {
         task_suspend((task_t*)delay_ctrl.waiting_task);
     }
-    
-    /* 进行任务调度 - 让出CPU给其他任务 */
+
+    /* 进行任务调度 - 让出CPU给其他任务（线程态路径，触发 SVC 0） */
     rtos_schedule();
-    
+
     /* 延时完成后，任务会从这里继续执行 */
 }
 
@@ -129,15 +129,15 @@ static void tim2_stop_delay(void)
 {
     /* 清除延时状态 */
     delay_ctrl.state = DELAY_IDLE;
-    
+
     /* 恢复等待的任务 */
     if (delay_ctrl.waiting_task) {
         task_resume((task_t*)delay_ctrl.waiting_task);
         delay_ctrl.waiting_task = NULL;
     }
-    
-    /* 进行任务调度 */
-    rtos_schedule();
+
+    /* 在中断环境中请求上下文切换（避免直接调用线程态入口） */
+    rtos_request_context_switch_from_isr();
 }
 
 /* Public functions ----------------------------------------------------------*/
@@ -150,17 +150,17 @@ static void tim2_stop_delay(void)
 void Time_Init(void)
 {
     RTOS_DEBUG_PRINT(1, "=== Time System Initialization Started ===");
-    
+
     /* 配置TIM2定时器 */
     tim2_config();
     RTOS_DEBUG_PRINT(2, "TIM2 timer configured");
-    
+
     /* 初始化延时控制结构体 */
     delay_ctrl.state = DELAY_IDLE;
     delay_ctrl.target_count = 0;
     delay_ctrl.waiting_task = NULL;
     delay_start_count = 0;
-    
+
     RTOS_DEBUG_PRINT(1, "Delay control structure initialized");
     RTOS_DEBUG_PRINT(2, "TIM2 clock frequency: %d Hz", TIM2_CLOCK_FREQ);
     RTOS_DEBUG_PRINT(2, "Minimum delay: %d ns", DELAY_MIN_NS);
@@ -176,14 +176,14 @@ void Time_DeInit(void)
 {
     /* 停止TIM2 */
     TIM_Cmd(TIM2, DISABLE);
-    
+
     /* 禁用TIM2中断 */
     TIM_ITConfig(TIM2, TIM_IT_CC1, DISABLE);
     NVIC_DisableIRQ(TIM2_IRQn);
-    
+
     /* 禁用TIM2时钟 */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, DISABLE);
-    
+
     /* 重置延时控制结构体 */
     delay_ctrl.state = DELAY_IDLE;
     delay_ctrl.target_count = 0;
@@ -199,20 +199,20 @@ void Time_DeInit(void)
 void Delay_ns(uint32_t ns)
 {
     uint32_t ticks;
-    
+
     /* 参数检查 */
     if (ns < DELAY_MIN_NS) {
         ns = DELAY_MIN_NS;  /* 最小延时100ns */
     }
-    
+
     /* 转换为时钟周期数 */
     ticks = NS_TO_TICKS(ns);
-    
+
     /* 检查是否超出最大延时范围 */
     if (ticks > 0xFFFFFFF0) {  /* 留一些余量避免溢出 */
         ticks = 0xFFFFFFF0;
     }
-    
+
     /* 启动延时 */
     tim2_start_delay(ticks);
 }
@@ -225,20 +225,20 @@ void Delay_ns(uint32_t ns)
 void Delay_us(uint32_t us)
 {
     uint32_t ticks;
-    
+
     /* 参数检查 */
     if (us == 0) {
         return;
     }
-    
+
     /* 转换为时钟周期数 */
     ticks = US_TO_TICKS(us);
-    
+
     /* 检查是否超出最大延时范围 */
     if (ticks > 0xFFFFFFF0) {  /* 留一些余量避免溢出 */
         ticks = 0xFFFFFFF0;
     }
-    
+
     /* 启动延时 */
     tim2_start_delay(ticks);
 }
@@ -251,25 +251,25 @@ void Delay_us(uint32_t us)
 void Delay_ms(uint32_t ms)
 {
     uint32_t ticks;
-    
+
     RTOS_DEBUG_PRINT(3, "Delay_ms called: %d ms", ms);
-    
+
     /* 参数检查 */
     if (ms == 0) {
         RTOS_DEBUG_PRINT(3, "Delay_ms: zero delay, returning");
         return;
     }
-    
+
     /* 转换为时钟周期数 */
     ticks = MS_TO_TICKS(ms);
     RTOS_DEBUG_PRINT(3, "Delay_ms: %d ms = %d ticks", ms, ticks);
-    
+
     /* 检查是否超出最大延时范围 */
     if (ticks > 0xFFFFFFF0) {  /* 留一些余量避免溢出 */
         ticks = 0xFFFFFFF0;
         RTOS_DEBUG_PRINT(2, "Delay_ms: ticks limited to 0xFFFFFFF0");
     }
-    
+
     /* 启动延时 */
     tim2_start_delay(ticks);
 }
@@ -282,14 +282,14 @@ void Delay_ms(uint32_t ms)
 void TIM2_IRQHandler_Internal(void)
 {
     RTOS_DEBUG_PRINT(3, "TIM2 interrupt triggered");
-    
+
     /* 检查TIM2比较中断 */
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
         RTOS_DEBUG_PRINT(3, "TIM2 CC1 interrupt detected");
-        
+
         /* 清除中断标志 */
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-        
+
         /* 检查是否在延时状态 */
         if (delay_ctrl.state == DELAY_ACTIVE) {
             RTOS_DEBUG_PRINT(2, "Delay completed, resuming task");
@@ -322,14 +322,14 @@ uint32_t Time_GetRemainingTicks(void)
 {
     uint32_t current_count;
     uint32_t remaining_ticks = 0;
-    
+
     if (delay_ctrl.state == DELAY_ACTIVE) {
         current_count = TIM_GetCounter(TIM2);
         if (current_count < delay_ctrl.target_count) {
             remaining_ticks = delay_ctrl.target_count - current_count;
         }
     }
-    
+
     return remaining_ticks;
 }
 

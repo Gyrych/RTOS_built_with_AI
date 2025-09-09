@@ -42,11 +42,11 @@
 #define TASK_RUNNING 1      /* 任务运行状态 */
 #define TASK_SUSPENDED 2    /* 任务挂起状态 */
 
-/* 任务控制块结构体 */
+/* 任务控制块结构体（为简化汇编访问，将 stack_ptr 置于偏移 0） */
 typedef struct {
+    uint32_t* stack_ptr;       /* 当前堆栈指针（偏移 0） */
     void (*task_func)(void*);  /* 任务函数指针 */
     void* arg;                 /* 任务参数 */
-    uint32_t* stack_ptr;       /* 当前堆栈指针 */
     uint32_t priority;         /* 任务优先级 */
     uint8_t state;             /* 任务状态 */
     uint32_t stack[STACK_SIZE]; /* 任务堆栈空间 */
@@ -64,10 +64,17 @@ extern scheduler_t scheduler;  /* 全局调度器实例 */
 /* 在C侧暴露给汇编使用的全局指针（便于汇编读取，不要用硬编码偏移） */
 extern volatile task_t * volatile pxCurrentTCB;
 extern volatile task_t * volatile pxNextTCB;
+extern volatile task_t * volatile * const pxSchedulerCurrentTaskPtr; /* 指向 scheduler.current_task 的指针 */
+
+/* SVC 编号定义 */
+#define SVC_YIELD               0   /* 线程态让出/请求调度 */
+#define SVC_START_FIRST_TASK    1   /* 启动首任务 */
 
 void rtos_init(void);        /* RTOS初始化 */
 void rtos_start(void);       /* 启动RTOS调度 */
 void rtos_schedule(void);    /* 调度器核心函数 */
+void rtos_request_context_switch_from_isr(void); /* 在中断中请求上下文切换 */
+int  rtos_schedule_decide_next(void);            /* 进行一次调度决策，返回是否需要切换 */
 
 task_t* task_create(void (*func)(void*), void* arg, uint32_t priority);  /* 创建新任务 */
 void task_suspend(task_t* task);  /* 挂起指定任务 */
