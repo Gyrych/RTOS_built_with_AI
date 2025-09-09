@@ -7,6 +7,19 @@ scheduler_t scheduler;  /* 全局调度器实例 */
 /* 在C侧暴露给汇编使用的全局指针（便于汇编读取，不要用硬编码偏移） */
 volatile task_t * volatile pxCurrentTCB = NULL;
 volatile task_t * volatile pxNextTCB = NULL;
+/* 提供给汇编用的调度器 current_task 指针，避免在异常内调用 C 函数 */
+volatile task_t * volatile * const pxSchedulerCurrentTaskPtr = &scheduler.current_task;
+
+/* PendSV 调试快照变量（仅用于故障定位） */
+volatile uint32_t psv_dbg_psp = 0;
+volatile uint32_t psv_dbg_hf = 0;
+volatile uint32_t psv_dbg_pc = 0;
+volatile uint32_t psv_dbg_xpsr = 0;
+volatile uint32_t psv_dbg_next_tcb = 0;
+volatile uint32_t psv_dbg_next_sp = 0;
+
+/* 前置静态声明：线程态调试用的任务帧转储函数 */
+static void rtos_debug_dump_tcb_frame(const char* tag, task_t* task);
 
 /* 空闲任务 - 当没有其他任务运行时执行 */
 static void idle_task(void* arg) {
@@ -94,10 +107,16 @@ void rtos_start(void) {
     pxCurrentTCB = first_task;  /* 同步更新全局指针 */
     first_task->state = TASK_RUNNING;
 
+    /* 调试：转入首任务前，转储该任务硬件帧关键信息 */
+    rtos_debug_dump_tcb_frame("start_first", first_task);
+
     RTOS_DEBUG_PRINT(1, "=== Starting first task execution ===");
 
     /* 通过 SVC 1 启动首任务：在 SVC 中设置 PSP 并异常返回至线程态 */
     __asm volatile("svc %0" :: "I"(SVC_START_FIRST_TASK));
+
+    /* 验证性打印：正常情况下不会执行到这里；若出现则表明 SVC 未通过 EXC_RETURN 进入首任务 */
+    printf("[FATAL] Returned from SVC start — should never happen!\r\n");
 }
 
 /* 创建新任务 */
@@ -121,33 +140,32 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
 
     RTOS_DEBUG_PRINT(2, "Task control block allocated at %p", task);
 
-    /* 初始化任务堆栈 - 按照FreeRTOS风格初始化 */
+    /* 初始化任务堆栈 - 确保与 svc_start_first/PendSV 恢复序列对齐 */
     /* 确保堆栈8字节对齐 */
     uint32_t *sp = &(task->stack[STACK_SIZE]);  /* 指向栈数组"末端"（one-past-end） */
     sp = (uint32_t *)((uint32_t)sp & ~0x7);     /* 8字节对齐 */
 
-    /* 为R4-R11（手动保存区）分配空间 */
-    sp -= 8;
+    /* 先为硬件自动保存区（异常返回时弹出）分配空间并初始化：
+       内存从低到高依次为 R0,R1,R2,R3,R12,LR,PC,xPSR */
+    sp -= 8;                    /* 预留 8 words 硬件帧空间 */
+    uint32_t *hw_frame = sp;    /* 指向硬件帧起始（R0 位置） */
+    hw_frame[0] = (uint32_t)arg;                   /* R0 - 任务参数 */
+    hw_frame[1] = 0;                               /* R1 */
+    hw_frame[2] = 0;                               /* R2 */
+    hw_frame[3] = 0;                               /* R3 */
+    hw_frame[4] = 0;                               /* R12 */
+    hw_frame[5] = (uint32_t)prvTaskExitError;      /* LR: 任务返回时兜底 */
+    hw_frame[6] = ((uint32_t)func) | 0x1;          /* PC (确保Thumb位=1) */
+    hw_frame[7] = 0x01000000;                       /* xPSR (T 位=1) */
+
+    /* 再为R4-R11（手动保存区）分配空间并清零；恢复时将先弹出R4-R11，然后 PSP 指向硬件帧 */
+    sp -= 8;                    /* 预留 8 words 给 R4..R11 */
     for (int i = 0; i < 8; i++) {
-        sp[i] = 0;  /* R4..R11初值 */
+        sp[i] = 0;  /* R4..R11 初值 */
     }
 
-    /* 为硬件自动保存区分配空间并初始化（xPSR..R0） */
-    sp -= 8;
-    sp[0] = 0x01000000;                           /* xPSR */
-    sp[1] = ((uint32_t)func) | 0x1;              /* PC (确保Thumb位=1) */
-    sp[2] = (uint32_t)prvTaskExitError;          /* LR: 指向任务退出处理（安全） */
-    sp[3] = 0;                                   /* R12 */
-    sp[4] = 0;                                   /* R3 */
-    sp[5] = 0;                                   /* R2 */
-    sp[6] = 0;                                   /* R1 */
-    sp[7] = (uint32_t)arg;                       /* R0 - 任务参数 */
-
-    /* 现在sp指向xPSR；但PendSV的保存会在运行时再把R4..R11 push到栈上，
-       因为我们提前为R4..R11分配了空间，所以pxStackPointer应该指向R4的位置 */
-    /* R4的位置在当前sp + 8 (因为我们先放了8 words给xPSR..R0，然后更早前再放了R4..R11) */
-    uint32_t *stack_ptr_for_restore = sp + 8;    /* 指向R4的位置 */
-    task->stack_ptr = stack_ptr_for_restore;
+    /* 此时 sp 指向 R4 起始位置；与 ldmia r0!, {r4-r11} 的恢复序列匹配 */
+    task->stack_ptr = sp;
 
     RTOS_DEBUG_PRINT(3, "Stack initialized: stack_ptr=%p, stack_size=%d",
                     task->stack_ptr, STACK_SIZE);
@@ -157,6 +175,9 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
 
     RTOS_DEBUG_PRINT(1, "Task created successfully: task_count=%d", scheduler.task_count);
     RTOS_DEBUG_PRINT_TASK(2, task, "Task created and ready");
+
+    /* 调试：任务创建后，转储该任务硬件帧关键信息 */
+    rtos_debug_dump_tcb_frame("create", task);
 
     return task;
 }
@@ -174,6 +195,10 @@ void task_suspend(task_t* task) {
 
 /* 恢复挂起的任务 */
 void task_resume(task_t* task) {
+    /* 调试：在恢复前转储目标任务帧（无论是否为挂起态） */
+    if (task) {
+        rtos_debug_dump_tcb_frame("resume", task);
+    }
     if (task && task->state == TASK_SUSPENDED) {
         RTOS_DEBUG_PRINT_TASK(2, task, "Resuming task");
         task->state = TASK_READY;  /* 将任务状态恢复为就绪 */
@@ -232,8 +257,11 @@ task_t* find_highest_priority_task(void) {
 
 /* 调度器核心函数 - 执行任务切换 */
 void rtos_schedule(void) {
-    /* 线程态让出：通过 SVC 0 进入内核调度路径 */
-    __asm volatile("svc %0" :: "I"(SVC_YIELD));
+    /* 线程态直接进行一次调度决策，必要时置位 PendSV 触发上下文切换 */
+    int need = rtos_schedule_decide_next();
+    if (need) {
+        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    }
 }
 
 /* 进行一次调度决策，返回是否需要上下文切换（1=需要，0=不需要） */
@@ -293,20 +321,44 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "LDR r3, =pxNextTCB \n"
         "LDR r2, [r3] \n"              /* r2 = pxNextTCB */
         "LDR r0, [r2, #0] \n"          /* r0 = pxNextTCB->stack_ptr */
+        "MOV r12, r2 \n"               /* 保存 next_tcb 指针到 r12，避免后续调试覆写 */
+
+        /* 调试快照：保存 next_tcb 与其 stack_ptr */
+        "LDR r3, =psv_dbg_next_tcb \n"
+        "STR r2, [r3] \n"
+        "LDR r3, =psv_dbg_next_sp \n"
+        "STR r0, [r3] \n"
 
         /* 恢复r4-r11并更新PSP */
         "LDMIA r0!, {r4-r11} \n"
         "MSR PSP, r0 \n"
         "ISB \n"                       /* 内存屏障 */
 
-        /* 更新pxCurrentTCB = pxNextTCB */
+        /* 调试快照：保存 PSP、硬件帧基址、PC 与 xPSR */
+        "MRS r1, PSP \n"               /* r1 = PSP (指向硬件帧 R0) */
+        "LDR r3, =psv_dbg_psp \n"
+        "STR r1, [r3] \n"
+        "LDR r3, =psv_dbg_hf \n"
+        "STR r1, [r3] \n"
+        "LDR r3, [r1, #24] \n"        /* PC */
+        "LDR r2, =psv_dbg_pc \n"
+        "STR r3, [r2] \n"
+        "LDR r3, [r1, #28] \n"        /* xPSR */
+        "LDR r2, =psv_dbg_xpsr \n"
+        "STR r3, [r2] \n"
+
+        /* 更新pxCurrentTCB = pxNextTCB (使用 r12) */
         "LDR r3, =pxCurrentTCB \n"
-        "STR r2, [r3] \n"
+        "STR r12, [r3] \n"
 
-        /* 调用C函数以同步scheduler.current_task等状态 */
-        "BL rtos_on_context_switch_completed \n"
+        /* 同步 scheduler.current_task = pxCurrentTCB (即 r12) */
+        "LDR r3, =pxSchedulerCurrentTaskPtr \n"
+        "LDR r3, [r3] \n"              /* r3 = &scheduler.current_task */
+        "STR r12, [r3] \n"
 
-        "BX lr \n"                     /* 返回，自动恢复剩余的寄存器 */
+        /* 固定使用 EXC_RETURN=0xFFFFFFFD 返回到线程态并使用 PSP */
+        "LDR r0, =0xFFFFFFFD \n"
+        "BX r0 \n"
     );
 }
 
@@ -362,6 +414,34 @@ void rtos_on_context_switch_completed(void) {
 }
 
 /* 调试辅助函数实现 */
+
+/*
+ * 调试：转储任务的硬件自动栈帧（R0..xPSR）与 R4..R11 保存区基址。
+ * 注意：仅在线程态调用，不要在异常上下文调用。
+ */
+static void rtos_debug_dump_tcb_frame(const char* tag, task_t* task) {
+    if (!task) {
+        RTOS_DEBUG_PRINT(1, "[FRAME] %s: NULL task", tag ? tag : "NULL");
+        return;
+    }
+    uint32_t* r4_base = (uint32_t*)task->stack_ptr;   /* R4..R11 保存区基址 */
+    uint32_t* hf      = r4_base + 8;                  /* 硬件帧起始：R0 */
+    uint32_t r0   = hf[0];
+    uint32_t r1   = hf[1];
+    uint32_t r2   = hf[2];
+    uint32_t r3   = hf[3];
+    uint32_t r12  = hf[4];
+    uint32_t lr   = hf[5];
+    uint32_t pc   = hf[6];
+    uint32_t xpsr = hf[7];
+
+    RTOS_DEBUG_PRINT(1, "[FRAME] %s: TCB=%p R4base=0x%08X HF=0x%08X",
+                     tag ? tag : "", task, (uint32_t)r4_base, (uint32_t)hf);
+    RTOS_DEBUG_PRINT(1, "[FRAME] %s: PC=0x%08X LR=0x%08X xPSR=0x%08X",
+                     tag ? tag : "", pc, lr, xpsr);
+    RTOS_DEBUG_PRINT(2, "[FRAME] %s: R0=0x%08X R1=0x%08X R2=0x%08X R3=0x%08X R12=0x%08X",
+                     tag ? tag : "", r0, r1, r2, r3, r12);
+}
 
 /**
  * @brief  获取任务状态名称

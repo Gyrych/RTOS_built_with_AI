@@ -126,6 +126,16 @@ void HardFault_Handler(void)
     printf("\r\n--- RTOS Information ---\r\n");
     printf("Note: RTOS state may be corrupted during HardFault\r\n");
     printf("Check system memory and stack usage\r\n");
+
+    /* 额外：PendSV故障快照（若已填充） */
+    extern volatile unsigned int psv_dbg_psp, psv_dbg_hf, psv_dbg_pc, psv_dbg_xpsr, psv_dbg_next_tcb, psv_dbg_next_sp;
+    printf("\r\n--- PendSV Snapshot ---\r\n");
+    printf("PSP:        0x%08X\r\n", psv_dbg_psp);
+    printf("HF Base:    0x%08X\r\n", psv_dbg_hf);
+    printf("HF PC:      0x%08X\r\n", psv_dbg_pc);
+    printf("HF xPSR:    0x%08X\r\n", psv_dbg_xpsr);
+    printf("Next TCB:   0x%08X\r\n", psv_dbg_next_tcb);
+    printf("Next SP:    0x%08X\r\n", psv_dbg_next_sp);
     
     printf("========================================\r\n");
     printf("System halted - check debug output above\r\n");
@@ -186,12 +196,10 @@ void UsageFault_Handler(void)
   * @param  None
   * @retval None
   */
-void SVC_Handler(void)
+/* SVC: 改为 naked 跳转，避免改动异常现场 */
+void __attribute__((naked)) SVC_Handler(void)
 {
-    printf("[SVC] System call interrupt triggered\r\n");
-    extern void svc_handler(void);
-    svc_handler();
-    printf("[SVC] System call interrupt completed\r\n");
+    __asm volatile("b svc_handler");
 }
 
 /**
@@ -208,12 +216,10 @@ void DebugMon_Handler(void)
   * @param  None
   * @retval None
   */
-void PendSV_Handler(void)
+/* PendSV: 改为 naked 跳转，避免改动异常现场 */
+void __attribute__((naked)) PendSV_Handler(void)
 {
-    printf("[PendSV] Context switch interrupt triggered\r\n");
-    extern void pend_sv_handler(void);
-    pend_sv_handler();
-    printf("[PendSV] Context switch interrupt completed\r\n");
+    __asm volatile("b pend_sv_handler");
 }
 
 /**
