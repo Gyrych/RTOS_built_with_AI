@@ -10,16 +10,9 @@ volatile task_t * volatile pxNextTCB = NULL;
 /* 提供给汇编用的调度器 current_task 指针，避免在异常内调用 C 函数 */
 volatile task_t * volatile * const pxSchedulerCurrentTaskPtr = &scheduler.current_task;
 
-/* PendSV 调试快照变量（仅用于故障定位） */
-volatile uint32_t psv_dbg_psp = 0;
-volatile uint32_t psv_dbg_hf = 0;
-volatile uint32_t psv_dbg_pc = 0;
-volatile uint32_t psv_dbg_xpsr = 0;
-volatile uint32_t psv_dbg_next_tcb = 0;
-volatile uint32_t psv_dbg_next_sp = 0;
+/* 无快照调试变量：保持异常路径最小化 */
 
-/* 前置静态声明：线程态调试用的任务帧转储函数 */
-static void rtos_debug_dump_tcb_frame(const char* tag, task_t* task);
+/* 注意：异常上下文中禁止使用 printf。为避免破坏异常现场，调试请在线程态进行。*/
 
 /* 空闲任务 - 当没有其他任务运行时执行 */
 static void idle_task(void* arg) {
@@ -107,8 +100,7 @@ void rtos_start(void) {
     pxCurrentTCB = first_task;  /* 同步更新全局指针 */
     first_task->state = TASK_RUNNING;
 
-    /* 调试：转入首任务前，转储该任务硬件帧关键信息 */
-    rtos_debug_dump_tcb_frame("start_first", first_task);
+    /* 首任务将通过 SVC 返回到线程态运行。*/
 
     RTOS_DEBUG_PRINT(1, "=== Starting first task execution ===");
 
@@ -176,8 +168,7 @@ task_t* task_create(void (*func)(void*), void* arg, uint32_t priority) {
     RTOS_DEBUG_PRINT(1, "Task created successfully: task_count=%d", scheduler.task_count);
     RTOS_DEBUG_PRINT_TASK(2, task, "Task created and ready");
 
-    /* 调试：任务创建后，转储该任务硬件帧关键信息 */
-    rtos_debug_dump_tcb_frame("create", task);
+    /* 任务已创建为 READY 态。*/
 
     return task;
 }
@@ -195,16 +186,13 @@ void task_suspend(task_t* task) {
 
 /* 恢复挂起的任务 */
 void task_resume(task_t* task) {
-    /* 调试：在恢复前转储目标任务帧（无论是否为挂起态） */
-    if (task) {
-        rtos_debug_dump_tcb_frame("resume", task);
-    }
+    /* 协作式模型下，对非 SUSPENDED 任务恢复并非错误，这里仅在高调试级别提示。*/
     if (task && task->state == TASK_SUSPENDED) {
         RTOS_DEBUG_PRINT_TASK(2, task, "Resuming task");
         task->state = TASK_READY;  /* 将任务状态恢复为就绪 */
         RTOS_DEBUG_PRINT_TASK(2, task, "Task resumed");
     } else if (task) {
-        RTOS_DEBUG_PRINT_TASK(1, task, "WARNING: Attempting to resume non-suspended task");
+        RTOS_DEBUG_PRINT_TASK(3, task, "Attempting to resume non-suspended task (no-op)");
     } else {
         RTOS_DEBUG_PRINT(1, "ERROR: Attempting to resume NULL task");
     }
@@ -323,29 +311,14 @@ void __attribute__((naked)) pend_sv_handler(void) {
         "LDR r0, [r2, #0] \n"          /* r0 = pxNextTCB->stack_ptr */
         "MOV r12, r2 \n"               /* 保存 next_tcb 指针到 r12，避免后续调试覆写 */
 
-        /* 调试快照：保存 next_tcb 与其 stack_ptr */
-        "LDR r3, =psv_dbg_next_tcb \n"
-        "STR r2, [r3] \n"
-        "LDR r3, =psv_dbg_next_sp \n"
-        "STR r0, [r3] \n"
+        /* 加载下一个任务栈指针 */
 
         /* 恢复r4-r11并更新PSP */
         "LDMIA r0!, {r4-r11} \n"
         "MSR PSP, r0 \n"
         "ISB \n"                       /* 内存屏障 */
 
-        /* 调试快照：保存 PSP、硬件帧基址、PC 与 xPSR */
-        "MRS r1, PSP \n"               /* r1 = PSP (指向硬件帧 R0) */
-        "LDR r3, =psv_dbg_psp \n"
-        "STR r1, [r3] \n"
-        "LDR r3, =psv_dbg_hf \n"
-        "STR r1, [r3] \n"
-        "LDR r3, [r1, #24] \n"        /* PC */
-        "LDR r2, =psv_dbg_pc \n"
-        "STR r3, [r2] \n"
-        "LDR r3, [r1, #28] \n"        /* xPSR */
-        "LDR r2, =psv_dbg_xpsr \n"
-        "STR r3, [r2] \n"
+        /* 更新 PSP 后直接返回 */
 
         /* 更新pxCurrentTCB = pxNextTCB (使用 r12) */
         "LDR r3, =pxCurrentTCB \n"
@@ -415,33 +388,7 @@ void rtos_on_context_switch_completed(void) {
 
 /* 调试辅助函数实现 */
 
-/*
- * 调试：转储任务的硬件自动栈帧（R0..xPSR）与 R4..R11 保存区基址。
- * 注意：仅在线程态调用，不要在异常上下文调用。
- */
-static void rtos_debug_dump_tcb_frame(const char* tag, task_t* task) {
-    if (!task) {
-        RTOS_DEBUG_PRINT(1, "[FRAME] %s: NULL task", tag ? tag : "NULL");
-        return;
-    }
-    uint32_t* r4_base = (uint32_t*)task->stack_ptr;   /* R4..R11 保存区基址 */
-    uint32_t* hf      = r4_base + 8;                  /* 硬件帧起始：R0 */
-    uint32_t r0   = hf[0];
-    uint32_t r1   = hf[1];
-    uint32_t r2   = hf[2];
-    uint32_t r3   = hf[3];
-    uint32_t r12  = hf[4];
-    uint32_t lr   = hf[5];
-    uint32_t pc   = hf[6];
-    uint32_t xpsr = hf[7];
-
-    RTOS_DEBUG_PRINT(1, "[FRAME] %s: TCB=%p R4base=0x%08X HF=0x%08X",
-                     tag ? tag : "", task, (uint32_t)r4_base, (uint32_t)hf);
-    RTOS_DEBUG_PRINT(1, "[FRAME] %s: PC=0x%08X LR=0x%08X xPSR=0x%08X",
-                     tag ? tag : "", pc, lr, xpsr);
-    RTOS_DEBUG_PRINT(2, "[FRAME] %s: R0=0x%08X R1=0x%08X R2=0x%08X R3=0x%08X R12=0x%08X",
-                     tag ? tag : "", r0, r1, r2, r3, r12);
-}
+/* 线程态调试：如需追加打印，请保持在高调试级别并避免异常上下文。*/
 
 /**
  * @brief  获取任务状态名称

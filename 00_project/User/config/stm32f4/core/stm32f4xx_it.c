@@ -127,15 +127,7 @@ void HardFault_Handler(void)
     printf("Note: RTOS state may be corrupted during HardFault\r\n");
     printf("Check system memory and stack usage\r\n");
 
-    /* 额外：PendSV故障快照（若已填充） */
-    extern volatile unsigned int psv_dbg_psp, psv_dbg_hf, psv_dbg_pc, psv_dbg_xpsr, psv_dbg_next_tcb, psv_dbg_next_sp;
-    printf("\r\n--- PendSV Snapshot ---\r\n");
-    printf("PSP:        0x%08X\r\n", psv_dbg_psp);
-    printf("HF Base:    0x%08X\r\n", psv_dbg_hf);
-    printf("HF PC:      0x%08X\r\n", psv_dbg_pc);
-    printf("HF xPSR:    0x%08X\r\n", psv_dbg_xpsr);
-    printf("Next TCB:   0x%08X\r\n", psv_dbg_next_tcb);
-    printf("Next SP:    0x%08X\r\n", psv_dbg_next_sp);
+    /* 为保持异常路径简洁，移除 PendSV 快照打印。 */
     
     printf("========================================\r\n");
     printf("System halted - check debug output above\r\n");
