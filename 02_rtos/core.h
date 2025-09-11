@@ -8,7 +8,7 @@
 
 /* 调试功能配置 */
 #define RTOS_DEBUG_ENABLE 1    /* 启用RTOS调试功能 */
-#define RTOS_DEBUG_LEVEL  2    /* 调试级别: 0=关闭, 1=基本, 2=详细, 3=完整 */
+#define RTOS_DEBUG_LEVEL  3    /* 调试级别: 0=关闭, 1=基本, 2=详细, 3=完整 */
 
 #if RTOS_DEBUG_ENABLE
     #define RTOS_DEBUG_PRINT(level, format, ...) \

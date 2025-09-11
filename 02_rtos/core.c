@@ -261,9 +261,11 @@ int rtos_schedule_decide_next(void) {
     if (next_task && next_task != pxCurrentTCB) {
         RTOS_DEBUG_PRINT(1, "Context switch required");
 
-        if (pxCurrentTCB) {
+        /* 仅当当前任务仍处于 RUNNING 时，才将其置回 READY。
+           若任务已在上层逻辑（如 Delay/阻塞）中改为 SUSPENDED，则保持不变。 */
+        if (pxCurrentTCB && pxCurrentTCB->state == TASK_RUNNING) {
             RTOS_DEBUG_PRINT_TASK(2, pxCurrentTCB, "Current task -> READY");
-            pxCurrentTCB->state = TASK_READY;  /* 当前任务状态改为就绪 */
+            pxCurrentTCB->state = TASK_READY;
         }
 
         RTOS_DEBUG_PRINT_TASK(2, next_task, "Next task -> RUNNING");

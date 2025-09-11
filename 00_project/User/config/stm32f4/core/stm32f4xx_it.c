@@ -234,10 +234,8 @@ void SysTick_Handler(void)
   */
 void TIM2_IRQHandler(void)
 {
-    printf("[TIM2] Timer interrupt triggered\r\n");
     extern void TIM2_IRQHandler_Internal(void);
     TIM2_IRQHandler_Internal();
-    printf("[TIM2] Timer interrupt completed\r\n");
 }
 
 /******************************************************************************/

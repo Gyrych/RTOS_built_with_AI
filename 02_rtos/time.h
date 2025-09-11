@@ -49,9 +49,10 @@ typedef struct {
 
 /* TIM2相关定义 */
 #define TIM2_CLOCK_FREQ         84000000UL    /* TIM2时钟频率: 84MHz */
-#define TIM2_NS_PER_TICK        12UL          /* 每个时钟周期约12ns (1/84MHz) */
-#define TIM2_US_PER_TICK        1000UL        /* 每微秒需要的时钟周期数 */
-#define TIM2_MS_PER_TICK        1000000UL     /* 每毫秒需要的时钟周期数 */
+/* 基于 TIM2_CLOCK_FREQ 的精确换算（整数近似） */
+#define TIM2_NS_PER_TICK        (1000000000UL / TIM2_CLOCK_FREQ)
+#define TIM2_US_PER_TICK        (TIM2_CLOCK_FREQ / 1000000UL)   /* 84 */
+#define TIM2_MS_PER_TICK        (TIM2_CLOCK_FREQ / 1000UL)      /* 84000 */
 
 /* 延时精度定义 */
 #define DELAY_MIN_NS            100UL         /* 最小延时100ns */
@@ -64,6 +65,7 @@ typedef struct {
 #define US_TO_TICKS(us)         ((us) * TIM2_US_PER_TICK)
 #define MS_TO_TICKS(ms)         ((ms) * TIM2_MS_PER_TICK)
 
+/* 反向换算（调试用途，注意可能存在整数溢出，必要时改用64位） */
 #define TICKS_TO_NS(ticks)      ((ticks) * TIM2_NS_PER_TICK)
 #define TICKS_TO_US(ticks)      ((ticks) / TIM2_US_PER_TICK)
 #define TICKS_TO_MS(ticks)      ((ticks) / TIM2_MS_PER_TICK)

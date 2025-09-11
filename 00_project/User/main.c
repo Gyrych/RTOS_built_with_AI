@@ -22,6 +22,7 @@
   */
 #include "main.h"
 #include "../../02_rtos/core.h"
+#include "../../02_rtos/time.h"
 #include <stdio.h>
 
 /* 私有变量定义 - 已移除废弃的TimingDelay变量 */
@@ -75,6 +76,10 @@ int main(void)
     NVIC_SetPriority(PendSV_IRQn, 15);     /* PendSV中断优先级设为最低 */
     /* 注意：不使用SysTick中断，系统采用事件驱动架构 */
     
+    /* 初始化高精度延时子系统（TIM2@84MHz） */
+    Time_Init();
+    printf("\r\n[Time] High-precision delay subsystem enabled (TIM2 @ %lu Hz)\r\n", (unsigned long)TIM2_CLOCK_FREQ);
+    
     /* RTOS初始化 */
     rtos_init();
     
@@ -83,8 +88,9 @@ int main(void)
     
     /* 创建两个LED控制任务 */
     printf("\r\n=== Creating LED Control Tasks ===\r\n");
-    green_led_task = task_create(task_led_g_blink, NULL, 1);    /* 绿色LED控制任务 */
-    red_led_task = task_create(task_led_r_blink, NULL, 2);      /* 红色LED控制任务 */
+    /* 调整优先级：红(1) > 绿(2)，确保红灯到期后更先运行 */
+    red_led_task = task_create(task_led_r_blink, NULL, 1);      /* 红色LED控制任务 */
+    green_led_task = task_create(task_led_g_blink, NULL, 2);    /* 绿色LED控制任务 */
     
     /* 打印任务创建后的调度器信息 */
     printf("\r\n=== After Task Creation ===\r\n");
@@ -129,19 +135,13 @@ void task_led_g_blink(void* arg)
     
     while(1)
     {
-        printf("[GREEN-TASK] Cycle %d: Turning ON green LED\r\n", cycle_count);
         LED_G_ON();
-        simple_delay(1000000);  /* 简单延时 */
+        printf("[GREEN-TASK] Cycle %d: Turning ON green LED (sleep 500ms)\r\n", cycle_count);
+        Delay_ms(500);
         
-        printf("[GREEN-TASK] Cycle %d: Turning OFF green LED\r\n", cycle_count);
         LED_G_OFF();
-        simple_delay(1000000);  /* 简单延时 */
-        
-        printf("[GREEN-TASK] Cycle %d: Resuming red task and suspending self\r\n", cycle_count);
-        /* 恢复红色LED任务，然后挂起自己 */
-        task_resume(red_led_task);
-        task_suspend(green_led_task);  /* 直接挂起绿色任务，而不是current_task */
-        rtos_schedule();
+        printf("[GREEN-TASK] Cycle %d: Turning OFF green LED (sleep 500ms)\r\n", cycle_count);
+        Delay_ms(500);
         
         cycle_count++;
     }
@@ -161,19 +161,13 @@ void task_led_r_blink(void* arg)
     
     while(1)
     {
-        printf("[RED-TASK] Cycle %d: Turning ON red LED\r\n", cycle_count);
         LED_R_ON();
-        simple_delay(1000000);  /* 简单延时 */
+        printf("[RED-TASK] Cycle %d: Turning ON red LED (sleep 100ms)\r\n", cycle_count);
+        Delay_ms(100);
         
-        printf("[RED-TASK] Cycle %d: Turning OFF red LED\r\n", cycle_count);
         LED_R_OFF();
-        simple_delay(1000000);  /* 简单延时 */
-        
-        printf("[RED-TASK] Cycle %d: Resuming green task and suspending self\r\n", cycle_count);
-        /* 恢复绿色LED任务，然后挂起自己 */
-        task_resume(green_led_task);
-        task_suspend(red_led_task);  /* 直接挂起红色任务，而不是current_task */
-        rtos_schedule();
+        printf("[RED-TASK] Cycle %d: Turning OFF red LED (sleep 100ms)\r\n", cycle_count);
+        Delay_ms(100);
         
         cycle_count++;
     }

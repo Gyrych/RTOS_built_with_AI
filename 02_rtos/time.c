@@ -24,6 +24,11 @@
 #include "../User/config/stm32f4/core/main.h"
 
 /* Private typedef -----------------------------------------------------------*/
+/* 并发延时队列条目 */
+typedef struct {
+    task_t* task;               /* 等待的任务 */
+    uint32_t target_count;      /* 目标计数值（相对 TIM2 计数器） */
+} delay_entry_t;
 
 /* Private define ------------------------------------------------------------*/
 
@@ -41,10 +46,23 @@ static delay_control_t delay_ctrl = {
 /* 延时开始时的基准计数值 */
 static uint32_t delay_start_count = 0;
 
+/* 延时等待队列与计数 */
+static delay_entry_t delay_queue[MAX_TASKS];
+static uint8_t delay_queue_count = 0;
+
 /* Private function prototypes -----------------------------------------------*/
 static void tim2_config(void);
 static void tim2_start_delay(uint32_t ticks);
 static void tim2_stop_delay(void);
+static void delay_queue_add(task_t* task, uint32_t target_count);
+static void delay_queue_remove_task(task_t* task);
+static void delay_queue_schedule_next_compare(void);
+static int  delay_queue_resume_due_and_rearm(void);
+static int  find_delay_entry_index_for_task(task_t* task);
+static inline uint32_t ticks_now(void) { return TIM_GetCounter(TIM2); }
+static inline void tim2_irq_disable(void) { NVIC_DisableIRQ(TIM2_IRQn); }
+static inline void tim2_irq_enable(void)  { NVIC_EnableIRQ(TIM2_IRQn); }
+static void delay_queue_dump(const char* tag);
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -94,30 +112,31 @@ static void tim2_config(void)
   */
 static void tim2_start_delay(uint32_t ticks)
 {
-    uint32_t current_count;
+    uint32_t current_count = ticks_now();
+    uint32_t target = current_count + ticks;
+    task_t* current_task = scheduler.current_task;
 
-    /* 获取当前计数值 */
-    current_count = TIM_GetCounter(TIM2);
-
-    /* 计算目标计数值 */
-    delay_ctrl.target_count = current_count + ticks;
-
-    /* 设置比较值 */
-    TIM_SetCompare1(TIM2, delay_ctrl.target_count);
-
-    /* 设置延时状态 */
+    /* 将当前任务加入延时队列（去重）并根据最近到期点更新CCR */
+    /* 禁止 TIM2 中断，避免与 ISR 并发修改队列 */
+    tim2_irq_disable();
+    rtos_enter_critical();
+    delay_queue_remove_task(current_task);
+    delay_queue_add(current_task, target);
     delay_ctrl.state = DELAY_ACTIVE;
-    delay_ctrl.waiting_task = (void*)scheduler.current_task;
+    delay_ctrl.target_count = target; /* 记录最近一次加入的目标值（统计用途） */
+    delay_ctrl.waiting_task = NULL;   /* 并发模型下不再使用单一等待者 */
+    delay_queue_schedule_next_compare();
+    RTOS_DEBUG_PRINT(3, "[TIME] enqueue: task=%p now=%u ticks=%u target=%u CCR1=%u qcnt=%d",
+                     current_task, current_count, ticks, target, TIM_GetCapture1(TIM2), delay_queue_count);
+    delay_queue_dump("after-enqueue");
+    rtos_exit_critical();
+    tim2_irq_enable();
 
-    /* 挂起当前任务 */
-    if (delay_ctrl.waiting_task) {
-        task_suspend((task_t*)delay_ctrl.waiting_task);
+    /* 挂起当前任务并请求一次调度 */
+    if (current_task) {
+        task_suspend(current_task);
     }
-
-    /* 进行任务调度 - 让出CPU给其他任务（线程态路径，触发 SVC 0） */
     rtos_schedule();
-
-    /* 延时完成后，任务会从这里继续执行 */
 }
 
 /**
@@ -127,17 +146,8 @@ static void tim2_start_delay(uint32_t ticks)
   */
 static void tim2_stop_delay(void)
 {
-    /* 清除延时状态 */
-    delay_ctrl.state = DELAY_IDLE;
-
-    /* 恢复等待的任务 */
-    if (delay_ctrl.waiting_task) {
-        task_resume((task_t*)delay_ctrl.waiting_task);
-        delay_ctrl.waiting_task = NULL;
-    }
-
-    /* 在中断环境中请求上下文切换（避免直接调用线程态入口） */
-    rtos_request_context_switch_from_isr();
+    /* 并发模型下：恢复所有到期任务并重装下一比较点 */
+    (void)delay_queue_resume_due_and_rearm();
 }
 
 /* Public functions ----------------------------------------------------------*/
@@ -290,14 +300,12 @@ void TIM2_IRQHandler_Internal(void)
         /* 清除中断标志 */
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
 
-        /* 检查是否在延时状态 */
-        if (delay_ctrl.state == DELAY_ACTIVE) {
-            RTOS_DEBUG_PRINT(2, "Delay completed, resuming task");
-            /* 延时完成，停止延时 */
-            tim2_stop_delay();
-        } else {
-            RTOS_DEBUG_PRINT(2, "TIM2 interrupt but no active delay");
-        }
+        RTOS_DEBUG_PRINT(3, "[TIME][ISR] now=%u CCR1=%u qcnt=%d", ticks_now(), TIM_GetCapture1(TIM2), delay_queue_count);
+        delay_queue_dump("isr-before");
+        /* 恢复所有到期任务并重装下一比较点 */
+        int resumed = delay_queue_resume_due_and_rearm();
+        RTOS_DEBUG_PRINT(3, "[TIME][ISR] resumed=%d next_target=%u qcnt=%d", resumed, delay_ctrl.target_count, delay_queue_count);
+        if (!resumed) { RTOS_DEBUG_PRINT(2, "TIM2 interrupt but no due entries"); }
     } else {
         RTOS_DEBUG_PRINT(2, "TIM2 interrupt but not CC1");
     }
@@ -310,7 +318,7 @@ void TIM2_IRQHandler_Internal(void)
   */
 delay_state_t Time_GetDelayState(void)
 {
-    return delay_ctrl.state;
+    return (delay_queue_count > 0) ? DELAY_ACTIVE : DELAY_IDLE;
 }
 
 /**
@@ -320,17 +328,142 @@ delay_state_t Time_GetDelayState(void)
   */
 uint32_t Time_GetRemainingTicks(void)
 {
-    uint32_t current_count;
+    uint32_t now = ticks_now();
     uint32_t remaining_ticks = 0;
 
-    if (delay_ctrl.state == DELAY_ACTIVE) {
-        current_count = TIM_GetCounter(TIM2);
-        if (current_count < delay_ctrl.target_count) {
-            remaining_ticks = delay_ctrl.target_count - current_count;
-        }
+    int idx = find_delay_entry_index_for_task(scheduler.current_task);
+    if (idx >= 0) {
+        /* 计算从 now 到目标的剩余 ticks（支持回绕的无符号差） */
+        remaining_ticks = (uint32_t)(delay_queue[idx].target_count - now);
     }
 
     return remaining_ticks;
+}
+
+/* ============================ 内部辅助函数 ============================ */
+
+/* 将任务加入延时队列（不去重） */
+static void delay_queue_add(task_t* task, uint32_t target_count)
+{
+    if (!task) return;
+    if (delay_queue_count >= MAX_TASKS) {
+        /* 队列已满：为安全起见直接恢复该任务（避免死锁） */
+        task_resume(task);
+        return;
+    }
+    delay_queue[delay_queue_count].task = task;
+    delay_queue[delay_queue_count].target_count = target_count;
+    delay_queue_count++;
+}
+
+/* 移除队列中指定任务的所有条目 */
+static void delay_queue_remove_task(task_t* task)
+{
+    if (!task || delay_queue_count == 0) return;
+    for (uint8_t i = 0; i < delay_queue_count; ) {
+        if (delay_queue[i].task == task) {
+            for (uint8_t j = i; j + 1 < delay_queue_count; j++) {
+                delay_queue[j] = delay_queue[j + 1];
+            }
+            delay_queue_count--;
+            continue;
+        }
+        i++;
+    }
+}
+
+/* 装载下一即将到期的比较值到 CCR1 */
+static void delay_queue_schedule_next_compare(void)
+{
+    if (delay_queue_count == 0) {
+        delay_ctrl.state = DELAY_IDLE;
+        return;
+    }
+
+    uint32_t now = ticks_now();
+    uint32_t min_delta = 0xFFFFFFFFu;
+    uint32_t next_target = now + min_delta;
+
+    for (uint8_t i = 0; i < delay_queue_count; i++) {
+        uint32_t target = delay_queue[i].target_count;
+        uint32_t delta = (uint32_t)(target - now); /* 无符号差，天然支持回绕 */
+        if (delta < min_delta) {
+            min_delta = delta;
+            next_target = target;
+        }
+    }
+
+    /* 避免在设置CCR时窗口滑过比较点：若过近则推迟2个tick */
+    uint32_t now2 = ticks_now();
+    if ((int32_t)(next_target - now2) <= 1) {
+        next_target = now2 + 2;
+    }
+    /* 设置CCR1为最近到期的目标 */
+    TIM_SetCompare1(TIM2, next_target);
+    delay_ctrl.target_count = next_target;
+    delay_ctrl.state = DELAY_ACTIVE;
+}
+
+/* 恢复所有到期任务，并重装下一比较点；返回恢复任务数 */
+static int delay_queue_resume_due_and_rearm(void)
+{
+    int resumed = 0;
+    rtos_enter_critical();
+    uint32_t now = ticks_now();
+
+    /* 遍历并恢复所有已到期的任务（支持回绕判断） */
+    for (uint8_t i = 0; i < delay_queue_count; ) {
+        delay_entry_t entry = delay_queue[i];
+        if ((int32_t)(now - entry.target_count) >= 0) {
+            RTOS_DEBUG_PRINT(3, "[TIME][ISR] resume task=%p target=%u now=%u", entry.task, entry.target_count, now);
+            task_resume(entry.task);
+            resumed++;
+            /* 移除该条目（紧缩） */
+            for (uint8_t j = i; j + 1 < delay_queue_count; j++) {
+                delay_queue[j] = delay_queue[j + 1];
+            }
+            delay_queue_count--;
+            continue; /* 紧缩后当前位置继续检查 */
+        }
+        i++;
+    }
+
+    /* 重装下一比较点（若队列非空） */
+    if (delay_queue_count > 0) {
+        delay_queue_schedule_next_compare();
+    } else {
+        delay_ctrl.state = DELAY_IDLE;
+    }
+
+    rtos_exit_critical();
+
+    if (resumed) {
+        /* 请求从中断进行一次上下文切换 */
+        rtos_request_context_switch_from_isr();
+    }
+    return resumed;
+}
+
+/* 查找指定任务在延时队列中的索引（未找到返回 -1） */
+static int find_delay_entry_index_for_task(task_t* task)
+{
+    if (!task) return -1;
+    for (uint8_t i = 0; i < delay_queue_count; i++) {
+        if (delay_queue[i].task == task) return (int)i;
+    }
+    return -1;
+}
+
+/* 打印队列内容（调试级别3下有效） */
+static void delay_queue_dump(const char* tag)
+{
+    uint32_t now = ticks_now();
+    RTOS_DEBUG_PRINT(3, "[TIME][DUMP-%s] now=%u qcnt=%d", tag ? tag : "", now, delay_queue_count);
+    for (uint8_t i = 0; i < delay_queue_count; i++) {
+        uint32_t target = delay_queue[i].target_count;
+        uint32_t delta = (uint32_t)(target - now);
+        RTOS_DEBUG_PRINT(3, "  [%d] task=%p target=%u delta_ticks=%u", i, delay_queue[i].task, target, delta);
+    }
 }
 
 /************************ (C) COPYRIGHT RTOS Team *****END OF FILE****/
