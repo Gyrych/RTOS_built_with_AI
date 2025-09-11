@@ -1,8 +1,14 @@
 /**
-  ******************************************************************************
-  * @file    log.h
-  * @brief   Asynchronous logging over UART DMA: ISR-safe enqueue + background flush
-  ******************************************************************************
+  * 文件功能：
+  * - 提供基于 UART DMA 的异步日志能力：线程环境格式化并入队，低优先级后台任务持续冲刷；ISR 环境提供二进制快速入队。
+  *
+  * 调用方法：
+  * - 在系统启动后调用 `rtos_log_init()` 初始化环形缓冲；创建一个低优先级任务运行 `rtos_log_task()` 即可自动冲刷。
+  * - 线程环境调用 `rtos_log_printf()`；中断环境使用 `rtos_log_enqueue_from_isr()` 追加原始数据。
+  *
+  * 注意事项：
+  * - 避免在 ISR 里做格式化（如 printf/vsnprintf），仅做最小化入队；
+  * - 若日志量大，建议适当增大 `RTOS_LOG_BUF_SIZE`，并确保日志任务优先级低于业务任务。
   */
 
 #ifndef __RTOS_LOG_H__

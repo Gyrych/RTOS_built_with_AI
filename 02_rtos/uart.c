@@ -224,44 +224,7 @@ void rtos_uart_set_rx_callback(rtos_uart_rx_cb_t callback)
     s_rx_cb = callback;
 }
 
-static int uart_try_start_tx_dma(const uint8_t* data, uint16_t length)
-{
-    if (length == 0) return 0;
-    if (s_tx_busy) return -1; /* busy */
-
-    /* Copy to internal buffer (simple single-flight implementation) */
-    if (length > RTOS_UART_TX_BUF_SIZE) length = RTOS_UART_TX_BUF_SIZE;
-    for (uint16_t i = 0; i < length; ++i) {
-#if RTOS_UART_AUTO_CRLF
-        if (data[i] == '\n') {
-            /* Expand to CRLF if fits */
-            if (i + 1 < RTOS_UART_TX_BUF_SIZE) {
-                s_tx_buf[i] = '\r';
-                s_tx_buf[i + 1] = '\n';
-                length = (length + 1 <= RTOS_UART_TX_BUF_SIZE) ? (length + 1) : length;
-                ++i;
-            } else {
-                s_tx_buf[i] = '\n';
-            }
-        } else {
-            s_tx_buf[i] = data[i];
-        }
-#else
-        s_tx_buf[i] = data[i];
-#endif
-    }
-
-    s_tx_busy = 1;
-
-    /* Program DMA with this buffer */
-    DMA_Cmd(RTOS_UART_TX_DMA_STREAM, DISABLE);
-    RTOS_UART_TX_DMA_STREAM->M0AR = (uint32_t)s_tx_buf;
-    RTOS_UART_TX_DMA_STREAM->NDTR = (uint16_t)length;
-    DMA_ClearFlag(RTOS_UART_TX_DMA_STREAM, DMA_FLAG_TCIF7 | DMA_FLAG_TEIF7 | DMA_FLAG_HTIF7 | DMA_FLAG_DMEIF7 | DMA_FLAG_FEIF7);
-    DMA_Cmd(RTOS_UART_TX_DMA_STREAM, ENABLE);
-
-    return (int)length;
-}
+/* 删除未使用的单次 DMA 启动函数：当前 TX 由队列 + DMA 中断驱动 */
 
 static void uart_kick_tx_if_idle(void)
 {

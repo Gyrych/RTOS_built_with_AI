@@ -69,8 +69,7 @@
 /* Exported functions ------------------------------------------------------- */
 void LED_G_Init(void);
 void LED_R_Init(void);
-void UART1_Init(void);
-int fputc(int ch, FILE *f);
+/* 移除未使用的旧式串口/stdio声明：串口由 rtos_uart_* 接管，stdio 由 _write/_read 实现 */
 
 /* 高精度延时函数声明 - 在time.h中定义 */
 /* void Delay_ns(uint32_t ns);   - 在time.h中声明 */

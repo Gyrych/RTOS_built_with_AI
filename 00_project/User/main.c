@@ -292,59 +292,13 @@ int _read(int file, char *ptr, int len)
   */
 void print_system_banner(void)
 {
-    /* 清屏并设置颜色 */
-    printf("\033[2J\033[H");  /* 清屏并移动光标到左上角 */
-    
-    /* 打印ASCII艺术标题 */
-    printf("\033[1;31m");     /* 设置红色粗体 */
-    printf("    ████████╗██╗ ██████╗██╗  ██╗██╗     ███████╗███████╗███████╗\r\n");
-    printf("    ╚══██╔══╝██║██╔════╝██║ ██╔╝██║     ██╔════╝██╔════╝██╔════╝\r\n");
-    printf("       ██║   ██║██║     █████╔╝ ██║     █████╗  ███████╗███████╗\r\n");
-    printf("       ██║   ██║██║     ██╔═██╗ ██║     ██╔══╝  ╚════██║╚════██║\r\n");
-    printf("       ██║   ██║╚██████╗██║  ██╗███████╗███████╗███████║███████║\r\n");
-    printf("       ╚═╝   ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚══════╝\r\n");
-    
-    printf("\033[1;33m");     /* 设置黄色粗体 */
-    printf("    ██████╗ ████████╗ ██████╗ ███████╗\r\n");
-    printf("    ██╔══██╗╚══██╔══╝██╔═══██╗██╔════╝\r\n");
-    printf("    ██████╔╝   ██║   ██║   ██║███████╗\r\n");
-    printf("    ██╔══██╗   ██║   ██║   ██║╚════██║\r\n");
-    printf("    ██║  ██║   ██║   ╚██████╔╝███████║\r\n");
-    printf("    ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚══════╝\r\n");
-    
-    /* 打印装饰线 */
-    printf("\033[1;36m");     /* 设置青色 */
-    printf("    ═══════════════════════════════════════════════════════════\r\n");
-    
-    /* 打印系统信息 */
-    printf("\033[1;32m");     /* 设置绿色 */
-    printf("    🖥️  System: STM32F407VGTx @ 168MHz\r\n");
-    printf("\033[1;35m");     /* 设置紫色 */
-    printf("    🏗️  Architecture: Cortex-M4 with FPU\r\n");
-    printf("\033[1;34m");     /* 设置蓝色 */
-    printf("    ⚙️  RTOS: Custom Tickless Real-Time Operating System\r\n");
-    printf("\033[1;37m");     /* 设置白色 */
-    printf("    🔄 Tasks: 2 LED Control Tasks (Cooperative Scheduling)\r\n");
-    
-    /* 打印装饰线 */
-    printf("\033[1;36m");     /* 设置青色 */
-    printf("    ═══════════════════════════════════════════════════════════\r\n");
-    
-    /* 打印启动信息 */
-    printf("\033[1;32m");     /* 设置绿色 */
-    printf("    ✅ [INFO] System initialized successfully!\r\n");
-    printf("\033[1;33m");     /* 设置黄色 */
-    printf("    🚀 [INFO] Starting dual LED cooperative tasks...\r\n");
-    printf("\033[1;37m");     /* 设置白色 */
-    printf("    💡 [INFO] Green LED: PF11 | Red LED: PF12\r\n");
-    
-    /* 打印底部装饰 */
-    printf("\033[1;31m");     /* 设置红色 */
-    printf("    ████████████████████████████████████████████████████████████\r\n");
-    printf("\033[0m");        /* 重置所有属性 */
-    
-    /* 添加一些延时让用户看到启动信息 */
-    simple_delay(2000000);
+    /* 精简版启动信息：不使用大段 ASCII/emoji，仅输出关键配置 */
+    printf("\r\n==== Tickless RTOS Startup ====\r\n");
+    printf("MCU: STM32F407VGTx @ 168MHz\r\n");
+    printf("Arch: Cortex-M4F | RTOS: Custom Tickless\r\n");
+    printf("LED: PF11 (Green), PF12 (Red)\r\n");
+    printf("UART1: 115200, DMA RX(IDLE)+TX DMA\r\n");
+    printf("===============================\r\n");
 }
 
 

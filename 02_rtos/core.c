@@ -10,7 +10,7 @@ volatile task_t * volatile pxNextTCB = NULL;
 /* 提供给汇编用的调度器 current_task 指针，避免在异常内调用 C 函数 */
 volatile task_t * volatile * const pxSchedulerCurrentTaskPtr = &scheduler.current_task;
 
-/* 无快照调试变量：保持异常路径最小化 */
+/* 注：为保持异常路径最小化，异常现场不进行繁重打印 */
 
 /* 注意：异常上下文中禁止使用 printf。为避免破坏异常现场，调试请在线程态进行。*/
 

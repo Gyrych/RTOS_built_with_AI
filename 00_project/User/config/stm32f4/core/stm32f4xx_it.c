@@ -9,11 +9,12 @@
   ******************************************************************************
   * @attention
   *
-  * 本文件实现了Tickless RTOS系统所需的关键中断处理函数：
-  * 1. SVC_Handler - 系统调用中断，用于RTOS任务调度
-  * 2. PendSV_Handler - 可挂起系统调用中断，用于上下文切换
-  * 3. SysTick_Handler - 保留为空，Tickless系统不使用
-  * 4. TIM2_IRQHandler - TIM2中断，用于高精度延时系统
+  * 本文件实现 Tickless RTOS 所需中断处理，并转发到内核：
+  * - SVC_Handler → svc_handler（在内核中实现）：系统调用与首任务启动
+  * - PendSV_Handler → pend_sv_handler：上下文切换
+  * - SysTick_Handler：保留为空，Tickless 不使用
+  * - TIM2_IRQHandler → TIM2_IRQHandler_Internal：高精度延时到期处理
+  * - USART1/DMA2 Stream5/7 → rtos_uart_*_irq_handler：DMA 串口收发
   *
   * 中断优先级配置：
   * - SVC: 0 (最高优先级)

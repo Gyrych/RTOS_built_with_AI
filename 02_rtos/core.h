@@ -5,7 +5,14 @@
 #include <stdio.h>
 #include "stm32f4xx.h"
 
-/* RTOS核心头文件 - 定义任务管理和调度器接口 */
+/*
+ * 文件功能：
+ * - 提供极简 Tickless RTOS 核心：任务创建/挂起/恢复/删除、优先级调度、SVC/PendSV 上下文切换、临界区与调试接口。
+ * 调用方法：
+ * - 初始化：rtos_init(); 创建任务：task_create(); 启动：rtos_start(); 线程主动让出或通过延时/ISR 触发调度。
+ * 中断优先级：
+ * - SVC=0（最高），PendSV=15（最低），外设如 TIM2 建议 3，USART1/DMA 建议 6。
+ */
 
 /* 调试功能配置 */
 #define RTOS_DEBUG_ENABLE 1    /* 启用RTOS调试功能 */

@@ -88,6 +88,24 @@ void TIM2_IRQHandler_Internal(void);  /* TIM2中断处理函数 */
 delay_state_t Time_GetDelayState(void);  /* 获取当前延时状态 */
 uint32_t Time_GetRemainingTicks(void);   /* 获取剩余延时时钟周期数 */
 
+/**
+ * 文件功能：
+ * - 提供基于 TIM2@84MHz 的高精度无滴答延时能力（ns/us/ms），并与 RTOS 调度协同。
+ * - 线程调用 Delay_*() 时当前任务挂起；TIM2 比较中断到期后恢复任务并触发一次调度。
+ *
+ * 调用方法：
+ * - 在系统初始化后依次调用：Time_Init();
+ * - 在任务中直接调用：Delay_ns/Delay_us/Delay_ms；禁止在中断中调用阻塞延时。
+ * - 退出前可调用：Time_DeInit();
+ *
+ * 依赖与中断优先级：
+ * - 依赖标准外设库 TIM2；TIM2_IRQn 优先级建议设置为 3（高于 PendSV=15，低于 SVC=0）。
+ *
+ * 注意事项：
+ * - 使用 32 位自增计数并支持回绕判断；大量并发延时通过队列管理并选择最近比较点。
+ * - TICKS_TO_* 换算宏主要用于调试，存在整数溢出风险时请使用 64 位计算。
+ */
+
 #ifdef __cplusplus
 }
 #endif

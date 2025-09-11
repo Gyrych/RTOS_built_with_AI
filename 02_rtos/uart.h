@@ -1,10 +1,20 @@
 /**
-  ******************************************************************************
-  * @file    uart.h
-  * @author  RTOS Team
-  * @brief   RTOS UART (USART1) interface based on DMA (RX circular + IDLE, TX DMA)
-  *          This module is part of RTOS core to provide low-CPU-overhead logging/IO.
-  ******************************************************************************
+  * 文件功能：
+  * - 提供 USART1 的 DMA 串口驱动（RX 环形缓冲 + IDLE 分包，TX DMA 队列），显著降低 CPU 占用。
+  * - 作为 RTOS 内核的一部分，服务于 `printf` 重定向、异步日志与交互 IO。
+  *
+  * 调用方法：
+  * - 系统初始化阶段调用 `rtos_uart_init()` 完成 GPIO、USART1、DMA 与中断配置。
+  * - 发送：使用 `rtos_uart_write()`（非阻塞，入队）或 `rtos_uart_write_blocking()`（阻塞直到队列清空）。
+  * - 接收：可注册 `rtos_uart_set_rx_callback()` 获得 IDLE 分段数据（在中断上下文回调）。
+  * - 在 `stm32f4xx_it.c` 中将相关中断转发到 `rtos_uart_*_irq_handler()`。
+  *
+  * 依赖与优先级：
+  * - 使用 DMA2（Stream5 RX / Stream7 TX）与 USART1，建议中断优先级低于 SVC(0)、高于 PendSV(15)。
+  *
+  * 注意事项：
+  * - RX 使用环形 DMA + IDLE 分包；如需基于长度帧，可在回调中自行拼包。
+  * - TX 采用环形队列 + DMA 续传；请避免在 ISR 中进行格式化操作。
   */
 
 #ifndef __RTOS_UART_H__

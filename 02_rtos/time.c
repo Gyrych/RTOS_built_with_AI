@@ -21,7 +21,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "time.h"
 #include "core.h"
-#include "../User/config/stm32f4/core/main.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* 并发延时队列条目 */
@@ -44,7 +43,7 @@ static delay_control_t delay_ctrl = {
 };
 
 /* 延时开始时的基准计数值 */
-static uint32_t delay_start_count = 0;
+/* 删除未使用的延时起始快照变量：不影响任何功能路径 */
 
 /* 延时等待队列与计数 */
 static delay_entry_t delay_queue[MAX_TASKS];
@@ -144,11 +143,7 @@ static void tim2_start_delay(uint32_t ticks)
   * @param  None
   * @retval None
   */
-static void tim2_stop_delay(void)
-{
-    /* 并发模型下：恢复所有到期任务并重装下一比较点 */
-    (void)delay_queue_resume_due_and_rearm();
-}
+/* 删除未使用的停止接口：当前模型按比较点自动重装，保留会造成误导 */
 
 /* Public functions ----------------------------------------------------------*/
 
@@ -169,7 +164,7 @@ void Time_Init(void)
     delay_ctrl.state = DELAY_IDLE;
     delay_ctrl.target_count = 0;
     delay_ctrl.waiting_task = NULL;
-    delay_start_count = 0;
+    /* 去除未用变量的初始化 */
 
     RTOS_DEBUG_PRINT(1, "Delay control structure initialized");
     RTOS_DEBUG_PRINT(2, "TIM2 clock frequency: %d Hz", TIM2_CLOCK_FREQ);
@@ -198,7 +193,7 @@ void Time_DeInit(void)
     delay_ctrl.state = DELAY_IDLE;
     delay_ctrl.target_count = 0;
     delay_ctrl.waiting_task = NULL;
-    delay_start_count = 0;
+    /* 去除未用变量的复位 */
 }
 
 /**
