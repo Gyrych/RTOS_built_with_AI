@@ -27,6 +27,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_it.h"
 #include "main.h"
+#include "../../../../../02_rtos/uart.h"
 
 /** @addtogroup Template_Project
   * @{
@@ -237,6 +238,32 @@ void TIM2_IRQHandler(void)
     extern void TIM2_IRQHandler_Internal(void);
     TIM2_IRQHandler_Internal();
 }
+
+#if RTOS_UART_ENABLE
+/**
+  * @brief  USART1 global interrupt handler (IDLE segmentation)
+  */
+void USART1_IRQHandler(void)
+{
+    rtos_uart_usart1_irq_handler();
+}
+
+/**
+  * @brief  DMA2 Stream7 interrupt handler (USART1 TX)
+  */
+void DMA2_Stream7_IRQHandler(void)
+{
+    rtos_uart_dma_tx_irq_handler();
+}
+
+/**
+  * @brief  DMA2 Stream5 interrupt handler (USART1 RX)
+  */
+void DMA2_Stream5_IRQHandler(void)
+{
+    rtos_uart_dma_rx_irq_handler();
+}
+#endif /* RTOS_UART_ENABLE */
 
 /******************************************************************************/
 /*                 STM32F4xx Peripherals Interrupt Handlers                   */

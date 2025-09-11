@@ -291,23 +291,12 @@ void Delay_ms(uint32_t ms)
   */
 void TIM2_IRQHandler_Internal(void)
 {
-    RTOS_DEBUG_PRINT(3, "TIM2 interrupt triggered");
-
     /* 检查TIM2比较中断 */
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
-        RTOS_DEBUG_PRINT(3, "TIM2 CC1 interrupt detected");
-
         /* 清除中断标志 */
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-
-        RTOS_DEBUG_PRINT(3, "[TIME][ISR] now=%u CCR1=%u qcnt=%d", ticks_now(), TIM_GetCapture1(TIM2), delay_queue_count);
-        delay_queue_dump("isr-before");
-        /* 恢复所有到期任务并重装下一比较点 */
-        int resumed = delay_queue_resume_due_and_rearm();
-        RTOS_DEBUG_PRINT(3, "[TIME][ISR] resumed=%d next_target=%u qcnt=%d", resumed, delay_ctrl.target_count, delay_queue_count);
-        if (!resumed) { RTOS_DEBUG_PRINT(2, "TIM2 interrupt but no due entries"); }
-    } else {
-        RTOS_DEBUG_PRINT(2, "TIM2 interrupt but not CC1");
+        /* 恢复到期任务并重装下一比较点（无打印，避免中断内阻塞IO） */
+        (void)delay_queue_resume_due_and_rearm();
     }
 }
 
@@ -415,7 +404,6 @@ static int delay_queue_resume_due_and_rearm(void)
     for (uint8_t i = 0; i < delay_queue_count; ) {
         delay_entry_t entry = delay_queue[i];
         if ((int32_t)(now - entry.target_count) >= 0) {
-            RTOS_DEBUG_PRINT(3, "[TIME][ISR] resume task=%p target=%u now=%u", entry.task, entry.target_count, now);
             task_resume(entry.task);
             resumed++;
             /* 移除该条目（紧缩） */

@@ -67,7 +67,6 @@
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-void LED_Init(void);
 void LED_G_Init(void);
 void LED_R_Init(void);
 void UART1_Init(void);

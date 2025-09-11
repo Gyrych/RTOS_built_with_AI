@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include "stm32f4xx.h"
 
 /* RTOS核心头文件 - 定义任务管理和调度器接口 */
 
@@ -11,18 +12,22 @@
 #define RTOS_DEBUG_LEVEL  3    /* 调试级别: 0=关闭, 1=基本, 2=详细, 3=完整 */
 
 #if RTOS_DEBUG_ENABLE
+    static inline int rtos_in_isr(void) {
+        return (__get_IPSR() != 0U);
+    }
+
     #define RTOS_DEBUG_PRINT(level, format, ...) \
         do { \
-            if (level <= RTOS_DEBUG_LEVEL) { \
+            if ((level) <= RTOS_DEBUG_LEVEL && !rtos_in_isr()) { \
                 printf("[RTOS-DEBUG] " format "\r\n", ##__VA_ARGS__); \
             } \
         } while(0)
 
     #define RTOS_DEBUG_PRINT_TASK(level, task, format, ...) \
         do { \
-            if (level <= RTOS_DEBUG_LEVEL && task) { \
+            if ((level) <= RTOS_DEBUG_LEVEL && (task) && !rtos_in_isr()) { \
                 printf("[RTOS-DEBUG] Task@%p(P%d,S%d) " format "\r\n", \
-                       task, task->priority, task->state, ##__VA_ARGS__); \
+                       (task), (task)->priority, (task)->state, ##__VA_ARGS__); \
             } \
         } while(0)
 #else

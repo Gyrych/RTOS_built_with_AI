@@ -24,6 +24,8 @@
 #include "../../02_rtos/core.h"
 #include "../../02_rtos/time.h"
 #include <stdio.h>
+#include "../../02_rtos/uart.h"
+#include "../../02_rtos/log.h"
 
 /* 私有变量定义 - 已移除废弃的TimingDelay变量 */
 static task_t* green_led_task = NULL;
@@ -36,10 +38,7 @@ void task_led_r_blink(void* arg);
 /* 简单延时函数 */
 void simple_delay(uint32_t count);
 
-/* UART和系统信息打印函数 */
-void UART1_Init(void);
-int fputc(int ch, FILE *f);
-int fgetc(FILE *f);
+/* UART和系统信息打印函数（由 RTOS UART 接管） */
 int _write(int file, char *ptr, int len);
 int _read(int file, char *ptr, int len);
 void print_system_banner(void);
@@ -58,8 +57,10 @@ int main(void)
     LED_G_Init();
     LED_R_Init();
     
-    /* UART1初始化 - 用于系统信息打印 */
-    UART1_Init();
+    /* RTOS UART 初始化（USART1 + DMA） - 用于系统信息打印 */
+    rtos_uart_init();
+    /* 初始化异步日志系统（后台冲刷） */
+    rtos_log_init();
     
     /* 打印炫酷的系统启动横幅 */
     print_system_banner();
@@ -82,6 +83,9 @@ int main(void)
     
     /* RTOS初始化 */
     rtos_init();
+
+    /* 创建日志后台任务（最低优先级） */
+    task_create(rtos_log_task, NULL, 30);
     
     /* 打印调度器信息 */
     rtos_debug_print_scheduler_info();
@@ -232,57 +236,9 @@ void LED_R_Init(void)
     LED_R_OFF();
 }
 
-/**
-  * @brief  LED初始化函数（兼容性函数）
-  * @param  None
-  * @retval None
-  */
-void LED_Init(void)
-{
-    LED_G_Init();
-}
+/* 兼容性函数 LED_Init 已移除：未被使用，保留会造成冗余，删除不影响功能 */
 
-/**
-  * @brief  UART1初始化函数
-  * @param  None
-  * @retval None
-  */
-void UART1_Init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
-    
-    /* 使能UART1和GPIOA时钟 */
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-    
-    /* 配置UART1引脚 - PA9(TX), PA10(RX) */
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9 | GPIO_Pin_10;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-    
-    /* 配置UART1引脚复用功能 */
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource9, GPIO_AF_USART1);
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource10, GPIO_AF_USART1);
-    
-    /* 配置UART1参数 */
-    USART_InitStructure.USART_BaudRate = 115200;
-    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-    USART_InitStructure.USART_StopBits = USART_StopBits_1;
-    USART_InitStructure.USART_Parity = USART_Parity_No;
-    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-    USART_Init(USART1, &USART_InitStructure);
-    
-    /* 使能UART1 */
-    USART_Cmd(USART1, ENABLE);
-    
-    /* 等待UART1发送完成 */
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
-}
+/* 旧的 UART1_Init 与 fputc/fgetc 已由 RTOS UART 接管并移除 */
 
 /**
   * @brief  printf重定向函数
@@ -290,30 +246,14 @@ void UART1_Init(void)
   * @param  f: 文件指针（未使用）
   * @retval 输出的字符
   */
-int fputc(int ch, FILE *f)
-{
-    /* 等待发送寄存器空 */
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-    
-    /* 发送字符 */
-    USART_SendData(USART1, (uint8_t)ch);
-    
-    return ch;
-}
+/* fputc 不再使用，_write 负责标准输出 */
 
 /**
   * @brief  fgetc重定向函数（nano.specs需要）
   * @param  f: 文件指针（未使用）
   * @retval 读取的字符
   */
-int fgetc(FILE *f)
-{
-    /* 等待接收数据 */
-    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-    
-    /* 读取字符 */
-    return (int)USART_ReceiveData(USART1);
-}
+/* fgetc 不再使用，_read 负责标准输入 */
 
 /**
   * @brief  _write重定向函数（nano.specs需要）
@@ -324,15 +264,9 @@ int fgetc(FILE *f)
   */
 int _write(int file, char *ptr, int len)
 {
-    int i;
-    for (i = 0; i < len; i++) {
-        /* 等待发送寄存器空 */
-        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-        
-        /* 发送字符 */
-        USART_SendData(USART1, (uint8_t)ptr[i]);
-    }
-    return len;
+    (void)file;
+    if (!ptr || len <= 0) return 0;
+    return rtos_uart_write_blocking((const uint8_t*)ptr, (uint16_t)len);
 }
 
 /**
@@ -344,15 +278,11 @@ int _write(int file, char *ptr, int len)
   */
 int _read(int file, char *ptr, int len)
 {
-    int i;
-    for (i = 0; i < len; i++) {
-        /* 等待接收数据 */
-        while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-        
-        /* 读取字符 */
-        ptr[i] = (char)USART_ReceiveData(USART1);
-    }
-    return len;
+    /* 简化：当前不提供阻塞读取，直接返回0；后续可注册回调或提供队列 */
+    (void)file;
+    (void)ptr;
+    (void)len;
+    return 0;
 }
 
 /**

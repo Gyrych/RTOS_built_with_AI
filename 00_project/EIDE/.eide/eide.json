@@ -147,6 +147,12 @@
           },
           {
             "path": "../../02_rtos/time.c"
+          },
+          {
+            "path": "../../02_rtos/uart.c"
+          },
+          {
+            "path": "../../02_rtos/log.c"
           }
         ],
         "folders": []
