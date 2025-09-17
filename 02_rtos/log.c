@@ -4,6 +4,7 @@
   * 调用方法：见 `log.h` 头部注释说明。
   */
 
+#define RTOS_CMSIS_FALLBACK 1
 #include "log.h"
 #include "uart.h"
 #include "core.h"

@@ -3,7 +3,34 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "stm32f4xx.h"
+#include "rtos_config.h"
+
+/* -------------------------------------------------------------------------- */
+/* Provide minimal CMSIS prerequisites before including core_cmX.h             */
+/* Some toolchains expect __FPU_PRESENT and __NVIC_PRIO_BITS to be defined,    */
+/* and core headers declare prototypes using IRQn_Type.                        */
+/* -------------------------------------------------------------------------- */
+#ifndef __FPU_PRESENT
+#define __FPU_PRESENT 1
+#endif
+
+#ifndef __NVIC_PRIO_BITS
+#define __NVIC_PRIO_BITS RTOS_NVIC_PRIO_BITS
+#endif
+
+#ifndef __ASSEMBLER__
+#ifdef RTOS_CMSIS_FALLBACK
+#include <stdint.h>
+typedef int32_t IRQn_Type; /* Fallback only for RTOS internal builds without device headers */
+#endif
+#endif
+
+/* CMSIS core access: prefer generic Cortex-M headers over device headers */
+#if defined(__CORTEX_M) && (__CORTEX_M == 3)
+#include "core_cm3.h"
+#else
+#include "core_cm4.h"
+#endif
 
 /*
  * 文件功能：

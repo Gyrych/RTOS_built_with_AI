@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "stm32f4xx.h"
+#include "rtos_config.h"
+#include "hal/rtos_hal_uart.h"
 
 /* ================== Configuration ================== */
 

@@ -236,8 +236,8 @@ void SysTick_Handler(void)
   */
 void TIM2_IRQHandler(void)
 {
-    extern void TIM2_IRQHandler_Internal(void);
-    TIM2_IRQHandler_Internal();
+    extern void rtos_time_irq_handler(void);
+    rtos_time_irq_handler();
 }
 
 #if RTOS_UART_ENABLE
@@ -246,7 +246,8 @@ void TIM2_IRQHandler(void)
   */
 void USART1_IRQHandler(void)
 {
-    rtos_uart_usart1_irq_handler();
+    extern void rtos_uart_irq_handler(void);
+    rtos_uart_irq_handler();
 }
 
 /**

@@ -26,8 +26,9 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx.h"
 #include <stdint.h>
+#include "rtos_config.h"
+#include "hal/rtos_hal_timer.h"
 
 /* Exported types ------------------------------------------------------------*/
 
@@ -47,12 +48,12 @@ typedef struct {
 
 /* Exported constants --------------------------------------------------------*/
 
-/* TIM2相关定义 */
-#define TIM2_CLOCK_FREQ         84000000UL    /* TIM2时钟频率: 84MHz */
+/* 计时基准（对齐原宏命名，映射到配置项，保持对外兼容性） */
+#define TIM2_CLOCK_FREQ         RTOS_TIMER_FREQ_HZ
 /* 基于 TIM2_CLOCK_FREQ 的精确换算（整数近似） */
 #define TIM2_NS_PER_TICK        (1000000000UL / TIM2_CLOCK_FREQ)
-#define TIM2_US_PER_TICK        (TIM2_CLOCK_FREQ / 1000000UL)   /* 84 */
-#define TIM2_MS_PER_TICK        (TIM2_CLOCK_FREQ / 1000UL)      /* 84000 */
+#define TIM2_US_PER_TICK        (TIM2_CLOCK_FREQ / 1000000UL)
+#define TIM2_MS_PER_TICK        (TIM2_CLOCK_FREQ / 1000UL)
 
 /* 延时精度定义 */
 #define DELAY_MIN_NS            100UL         /* 最小延时100ns */

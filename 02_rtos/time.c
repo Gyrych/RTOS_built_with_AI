@@ -19,8 +19,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#define RTOS_CMSIS_FALLBACK 1
 #include "time.h"
 #include "core.h"
+#include "hal/rtos_hal_timer.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* 并发延时队列条目 */
@@ -50,17 +52,14 @@ static delay_entry_t delay_queue[MAX_TASKS];
 static uint8_t delay_queue_count = 0;
 
 /* Private function prototypes -----------------------------------------------*/
-static void tim2_config(void);
-static void tim2_start_delay(uint32_t ticks);
-static void tim2_stop_delay(void);
+static void tim_config(void);
+static void tim_start_delay(uint32_t ticks);
 static void delay_queue_add(task_t* task, uint32_t target_count);
 static void delay_queue_remove_task(task_t* task);
 static void delay_queue_schedule_next_compare(void);
 static int  delay_queue_resume_due_and_rearm(void);
 static int  find_delay_entry_index_for_task(task_t* task);
-static inline uint32_t ticks_now(void) { return TIM_GetCounter(TIM2); }
-static inline void tim2_irq_disable(void) { NVIC_DisableIRQ(TIM2_IRQn); }
-static inline void tim2_irq_enable(void)  { NVIC_EnableIRQ(TIM2_IRQn); }
+static inline uint32_t ticks_now(void) { return rtos_hal_timer_get_counter(); }
 static void delay_queue_dump(const char* tag);
 
 /* Private functions ---------------------------------------------------------*/
@@ -70,38 +69,10 @@ static void delay_queue_dump(const char* tag);
   * @param  None
   * @retval None
   */
-static void tim2_config(void)
+static void tim_config(void)
 {
-    TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-    TIM_OCInitTypeDef TIM_OCInitStructure;
-
-    /* 使能TIM2时钟 */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-
-    /* 配置TIM2时基单元 */
-    TIM_TimeBaseStructure.TIM_Period = 0xFFFFFFFF;        /* 32位最大值 */
-    TIM_TimeBaseStructure.TIM_Prescaler = 0;              /* 无分频，直接使用84MHz */
-    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-
-    /* 配置TIM2输出比较通道1 */
-    TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_Timing;   /* 输出比较模式：定时模式 */
-    TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Disable; /* 禁用输出 */
-    TIM_OCInitStructure.TIM_Pulse = 0;                    /* 初始比较值 */
-    TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-    TIM_OC1Init(TIM2, &TIM_OCInitStructure);
-    TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Disable);
-
-    /* 使能TIM2比较中断 */
-    TIM_ITConfig(TIM2, TIM_IT_CC1, ENABLE);
-
-    /* 设置TIM2中断优先级 */
-    NVIC_SetPriority(TIM2_IRQn, 3);  /* 优先级高于PendSV(15)，低于SVC(0) */
-    NVIC_EnableIRQ(TIM2_IRQn);
-
-    /* 启动TIM2 */
-    TIM_Cmd(TIM2, ENABLE);
+    /* 由硬件适配层完成具体定时器与中断配置 */
+    rtos_hal_timer_init();
 }
 
 /**
@@ -109,15 +80,15 @@ static void tim2_config(void)
   * @param  ticks: 延时时钟周期数
   * @retval None
   */
-static void tim2_start_delay(uint32_t ticks)
+static void tim_start_delay(uint32_t ticks)
 {
     uint32_t current_count = ticks_now();
     uint32_t target = current_count + ticks;
     task_t* current_task = scheduler.current_task;
 
     /* 将当前任务加入延时队列（去重）并根据最近到期点更新CCR */
-    /* 禁止 TIM2 中断，避免与 ISR 并发修改队列 */
-    tim2_irq_disable();
+    /* 禁止定时器比较中断，避免与 ISR 并发修改队列 */
+    rtos_hal_timer_irq_disable();
     rtos_enter_critical();
     delay_queue_remove_task(current_task);
     delay_queue_add(current_task, target);
@@ -125,11 +96,11 @@ static void tim2_start_delay(uint32_t ticks)
     delay_ctrl.target_count = target; /* 记录最近一次加入的目标值（统计用途） */
     delay_ctrl.waiting_task = NULL;   /* 并发模型下不再使用单一等待者 */
     delay_queue_schedule_next_compare();
-    RTOS_DEBUG_PRINT(3, "[TIME] enqueue: task=%p now=%u ticks=%u target=%u CCR1=%u qcnt=%d",
-                     current_task, current_count, ticks, target, TIM_GetCapture1(TIM2), delay_queue_count);
+    RTOS_DEBUG_PRINT(3, "[TIME] enqueue: task=%p now=%u ticks=%u target=%u qcnt=%d",
+                     current_task, current_count, ticks, target, delay_queue_count);
     delay_queue_dump("after-enqueue");
     rtos_exit_critical();
-    tim2_irq_enable();
+    rtos_hal_timer_irq_enable();
 
     /* 挂起当前任务并请求一次调度 */
     if (current_task) {
@@ -156,9 +127,9 @@ void Time_Init(void)
 {
     RTOS_DEBUG_PRINT(1, "=== Time System Initialization Started ===");
 
-    /* 配置TIM2定时器 */
-    tim2_config();
-    RTOS_DEBUG_PRINT(2, "TIM2 timer configured");
+    /* 配置高精度定时器（通过 HAL） */
+    tim_config();
+    RTOS_DEBUG_PRINT(2, "High-precision timer configured via HAL");
 
     /* 初始化延时控制结构体 */
     delay_ctrl.state = DELAY_IDLE;
@@ -169,6 +140,13 @@ void Time_Init(void)
     RTOS_DEBUG_PRINT(1, "Delay control structure initialized");
     RTOS_DEBUG_PRINT(2, "TIM2 clock frequency: %d Hz", TIM2_CLOCK_FREQ);
     RTOS_DEBUG_PRINT(2, "Minimum delay: %d ns", DELAY_MIN_NS);
+
+    /* 触发一个极短比较以自检中断路径（不影响后续调度） */
+    {
+        uint32_t now = ticks_now();
+        rtos_hal_timer_set_compare(now + 1000);
+    }
+
     RTOS_DEBUG_PRINT(1, "=== Time System Initialization Completed ===");
 }
 
@@ -179,15 +157,8 @@ void Time_Init(void)
   */
 void Time_DeInit(void)
 {
-    /* 停止TIM2 */
-    TIM_Cmd(TIM2, DISABLE);
-
-    /* 禁用TIM2中断 */
-    TIM_ITConfig(TIM2, TIM_IT_CC1, DISABLE);
-    NVIC_DisableIRQ(TIM2_IRQn);
-
-    /* 禁用TIM2时钟 */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, DISABLE);
+    /* 由 HAL 负责反初始化定时器与中断 */
+    rtos_hal_timer_deinit();
 
     /* 重置延时控制结构体 */
     delay_ctrl.state = DELAY_IDLE;
@@ -219,7 +190,7 @@ void Delay_ns(uint32_t ns)
     }
 
     /* 启动延时 */
-    tim2_start_delay(ticks);
+    tim_start_delay(ticks);
 }
 
 /**
@@ -245,7 +216,7 @@ void Delay_us(uint32_t us)
     }
 
     /* 启动延时 */
-    tim2_start_delay(ticks);
+    tim_start_delay(ticks);
 }
 
 /**
@@ -276,7 +247,7 @@ void Delay_ms(uint32_t ms)
     }
 
     /* 启动延时 */
-    tim2_start_delay(ticks);
+    tim_start_delay(ticks);
 }
 
 /**
@@ -284,13 +255,10 @@ void Delay_ms(uint32_t ms)
   * @param  None
   * @retval None
   */
-void TIM2_IRQHandler_Internal(void)
+void rtos_time_irq_handler(void)
 {
-    /* 检查TIM2比较中断 */
-    if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
-        /* 清除中断标志 */
-        TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-        /* 恢复到期任务并重装下一比较点（无打印，避免中断内阻塞IO） */
+    /* 仅在比较中断挂起时处理 */
+    if (rtos_hal_timer_check_and_clear_compare_irq()) {
         (void)delay_queue_resume_due_and_rearm();
     }
 }
@@ -382,8 +350,8 @@ static void delay_queue_schedule_next_compare(void)
     if ((int32_t)(next_target - now2) <= 1) {
         next_target = now2 + 2;
     }
-    /* 设置CCR1为最近到期的目标 */
-    TIM_SetCompare1(TIM2, next_target);
+    /* 设置最近到期的比较目标（由 HAL 完成） */
+    rtos_hal_timer_set_compare(next_target);
     delay_ctrl.target_count = next_target;
     delay_ctrl.state = DELAY_ACTIVE;
 }

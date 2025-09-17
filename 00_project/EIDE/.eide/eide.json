@@ -182,6 +182,18 @@
               }
             ],
             "folders": []
+          },
+          {
+            "name": "hal",
+            "files": [
+              {
+                "path": "../User/hal/stm32f4/rtos_hal_timer_stm32f4.c"
+              },
+              {
+                "path": "../User/hal/stm32f4/rtos_hal_uart_stm32f4.c"
+              }
+            ],
+            "folders": []
           }
         ]
       }

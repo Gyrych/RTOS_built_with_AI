@@ -1,6 +1,8 @@
+#define RTOS_CMSIS_FALLBACK 1
 #include "core.h"
 #include <string.h>
-#include "stm32f4xx.h"
+
+/* core_cmX.h already included via core.h; avoid device header coupling */
 
 scheduler_t scheduler;  /* 全局调度器实例 */
 
